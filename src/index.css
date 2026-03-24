@@ -1,0 +1,52 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; touch-action: pan-x pan-y; }
+body { touch-action: pan-x pan-y; }
+html, body { overflow: hidden; max-width: 100vw; font-family: 'Nunito', sans-serif; }
+body { background: #FFF9F0; }
+input, textarea, select { font-size: 16px !important; }
+input:focus { outline: none; }
+
+@keyframes sheetUp    { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@keyframes sheetDown  { from { transform: translateY(0); } to { transform: translateY(100%); } }
+@keyframes backdropIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes wrongShake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-5px)} 40%{transform:translateX(5px)} 60%{transform:translateX(-3px)} 80%{transform:translateX(3px)} }
+@keyframes confettiFall { 0%{transform:translateY(-20px) rotate(0deg);opacity:1} 100%{transform:translateY(100vh) rotate(720deg);opacity:0} }
+@keyframes celebrationPop { 0%{transform:scale(0.7) translateY(20px);opacity:0} 70%{transform:scale(1.03) translateY(-4px)} 100%{transform:scale(1) translateY(0);opacity:1} }
+@keyframes fadeSlideUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes tabBounce { 0%{transform:scale(1)} 40%{transform:scale(1.25)} 70%{transform:scale(0.92)} 100%{transform:scale(1)} }
+@keyframes wiggle { 0%,100%{transform:rotate(0deg)} 25%{transform:rotate(-8deg)} 75%{transform:rotate(8deg)} }
+@keyframes starPop { 0%{transform:scale(0) rotate(-20deg);opacity:0} 70%{transform:scale(1.3) rotate(5deg)} 100%{transform:scale(1) rotate(0deg);opacity:1} }
+@keyframes tileBounce { 0%{transform:scale(1)} 30%{transform:scale(0.88)} 65%{transform:scale(1.12)} 85%{transform:scale(0.97)} 100%{transform:scale(1)} }
+@keyframes tileRipple { 0%{opacity:0.6;transform:scale(0.4)} 100%{opacity:0;transform:scale(2.2)} }
+@keyframes tileGlow { 0%{box-shadow:0 0 0px rgba(34,197,94,0)} 40%{box-shadow:0 0 22px rgba(34,197,94,0.85)} 100%{box-shadow:0 0 8px rgba(34,197,94,0.22)} }
+@keyframes tileShake { 0%,100%{transform:translateX(0) scale(1)} 15%{transform:translateX(-6px) scale(1.04)} 35%{transform:translateX(5px) scale(1.04)} 55%{transform:translateX(-4px)} 75%{transform:translateX(3px)} }
+@keyframes rowPop { 0%{transform:scaleX(1)} 40%{transform:scaleX(1.04)} 70%{transform:scaleX(0.98)} 100%{transform:scaleX(1)} }
+@keyframes badgePop { 0%{transform:scale(0) translateY(8px);opacity:0} 60%{transform:scale(1.2) translateY(-3px);opacity:1} 100%{transform:scale(1) translateY(0);opacity:1} }
+
+.tile-slot { cursor: pointer; transition: all 0.15s cubic-bezier(0.16,1,0.3,1); }
+.tile-slot:hover { transform: scale(1.05); box-shadow: 0 4px 16px rgba(16,24,40,0.12); }
+.tile-slot:active { transform: scale(0.93); animation: wiggle 0.3s ease; }
+
+.puzzle-card { transition: all 0.18s cubic-bezier(0.16,1,0.3,1); cursor: pointer; }
+.puzzle-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(16,24,40,0.1) !important; }
+.puzzle-card:active { transform: scale(0.985); }
+
+.btn { transition: all 0.15s ease; cursor: pointer; font-family: 'Nunito', sans-serif; font-weight: 800; border: none; }
+.btn:active { transform: scale(0.97); }
+.btn-primary { background: #0BA5EC; color: #fff; box-shadow: 0 1px 2px rgba(16,24,40,0.05); }
+.btn-primary:hover { background: #0284C7; }
+.btn-ghost { background: transparent; color: #344054; border: 1.5px solid #D0D5DD; }
+.btn-ghost:hover { background: #F9FAFB; }
+.btn-success { background: #12B76A; color: #fff; }
+.btn-success:hover { background: #039855; }
+.nav-btn { background: #F9FAFB; border: 1.5px solid #E4E7EC; color: #344054; transition: all 0.15s; cursor: pointer; }
+.nav-btn:hover { background: #F2F4F7; border-color: #D0D5DD; }
+.submit-btn { background: #12B76A; color: #fff; transition: all 0.15s; cursor: pointer; }
+.submit-btn:hover { background: #039855; }
+
+.tile-bounce { animation: tileBounce 0.38s cubic-bezier(0.16,1,0.3,1) forwards; }
+.tile-glow   { animation: tileGlow 0.7s ease forwards; }
+.tile-shake  { animation: tileShake 0.4s ease forwards; }
+.row-pop     { animation: rowPop 0.35s cubic-bezier(0.16,1,0.3,1) forwards; }
