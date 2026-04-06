@@ -26,12 +26,12 @@ function getPuzzleProgress(puzzle) {
   } catch (e) { return 0; }
 }
 
-function PuzzleCard({ puzzle, onClick }) {
+function PuzzleCard({ puzzle, isFree, locked, onClick }) {
   const pct = Math.round(getPuzzleProgress(puzzle) * 100);
   const stars = puzzle.subtitle.includes("Easy") ? "⭐" : puzzle.subtitle.includes("Medium") ? "⭐⭐" : "⭐⭐⭐";
   const done = pct === 100;
   return (
-    <div className="puzzle-card" onClick={onClick} style={{ background: C.paper, border: `2px solid ${done ? C.correct : C.border}`, borderRadius: 20, padding: "12px 14px", marginBottom: 10, boxShadow: C.shadowMd, cursor: "pointer", display: "flex", alignItems: "center", gap: 14 }}>
+    <div className="puzzle-card" onClick={onClick} style={{ background: locked ? C.surface : C.paper, border: `2px solid ${done ? C.correct : C.border}`, borderRadius: 20, padding: "12px 14px", marginBottom: 10, boxShadow: C.shadowMd, cursor: locked ? "default" : "pointer", display: "flex", alignItems: "center", gap: 14, opacity: locked ? 0.6 : 1 }}>
       <SolutionPreview puzzle={puzzle} size={60} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: pct > 0 ? 8 : 0 }}>
@@ -39,11 +39,15 @@ function PuzzleCard({ puzzle, onClick }) {
             <div style={{ fontFamily: "'Fredoka One',cursive", fontSize: 18, color: C.ink, letterSpacing: 0.3 }}>{puzzle.title}</div>
             <div style={{ fontSize: 12, color: C.muted, marginTop: 2, fontWeight: 600 }}>{stars} · {puzzle.subtitle.split(" · ")[1]}</div>
           </div>
-          {done
+          {locked
+            ? <div style={{ background: C.surface, color: C.muted, borderRadius: 12, padding: "5px 12px", fontSize: 11, fontWeight: 900, flexShrink: 0, border: `1px solid ${C.border}` }}>🔒 1 Credit</div>
+            : done
             ? <div style={{ background: C.correct, color: "#fff", borderRadius: 12, padding: "5px 12px", fontSize: 13, fontWeight: 900, flexShrink: 0 }}>✓ Done</div>
+            : !isFree && pct === 0
+            ? <div style={{ background: "#FFF7ED", color: "#D4601A", borderRadius: 12, padding: "5px 12px", fontSize: 11, fontWeight: 900, flexShrink: 0, border: "1px solid #FDDCAF" }}>1 Credit</div>
             : pct > 0
             ? <div style={{ color: C.accent, fontWeight: 900, fontSize: 14, flexShrink: 0 }}>{pct}%</div>
-            : <div style={{ background: C.accentLight, color: C.accent, borderRadius: 12, padding: "5px 12px", fontSize: 11, fontWeight: 900, flexShrink: 0 }}>Play</div>
+            : <div style={{ background: C.accentLight, color: C.accent, borderRadius: 12, padding: "5px 12px", fontSize: 11, fontWeight: 900, flexShrink: 0 }}>Free</div>
           }
         </div>
         {pct > 0 && (
@@ -56,10 +60,28 @@ function PuzzleCard({ puzzle, onClick }) {
   );
 }
 
-function HomeTab({ onPlay }) {
+function CreditsBadge({ credits }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, margin: "0 auto 16px", background: "linear-gradient(135deg, #FFF7ED, #FEF3C7)", border: "1px solid #FDDCAF", borderRadius: 16, padding: "8px 18px", width: "fit-content" }}>
+      <span style={{ fontSize: 16 }}>🪙</span>
+      <span style={{ fontFamily: "'Fredoka One',cursive", fontSize: 16, color: "#D4601A" }}>{credits}</span>
+      <span style={{ fontSize: 11, color: "#92400E", fontWeight: 700, letterSpacing: 1 }}>CREDITS</span>
+    </div>
+  );
+}
+
+function HomeTab({ onPlay, credits, onSpendCredit }) {
   const today = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+  const handlePuzzleClick = (entry) => {
+    if (entry.free) { onPlay(entry.puzzle); return; }
+    const pct = Math.round(getPuzzleProgress(entry.puzzle) * 100);
+    if (pct > 0) { onPlay(entry.puzzle); return; }
+    if (credits <= 0) return;
+    if (onSpendCredit()) onPlay(entry.puzzle);
+  };
   return (
     <div style={{ padding: "20px 20px 0", maxWidth: 480, margin: "0 auto", width: "100%" }}>
+      <CreditsBadge credits={credits} />
       <div style={{ fontSize: 11, color: C.muted, letterSpacing: 2, textTransform: "uppercase", fontWeight: 800, marginBottom: 10 }}>⭐ Daily Challenge</div>
       <div className="puzzle-card" onClick={() => onPlay(ELEPHANT_PUZZLE)} style={{ background: "linear-gradient(135deg, #C026D3 0%, #818CF8 100%)", borderRadius: 24, padding: "20px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24, boxShadow: "0 8px 28px rgba(192,38,211,0.4)" }}>
         <div>
@@ -70,25 +92,41 @@ function HomeTab({ onPlay }) {
         <div style={{ background: "#FBBF24", color: "#2D1B69", borderRadius: 16, padding: "10px 18px", fontSize: 14, fontWeight: 900, flexShrink: 0, boxShadow: "0 4px 12px rgba(251,191,36,0.5)", fontFamily: "'Fredoka One',cursive", letterSpacing: 0.5 }}>PLAY!</div>
       </div>
       <div style={{ fontSize: 11, color: C.muted, letterSpacing: 2, textTransform: "uppercase", fontWeight: 800, marginBottom: 10 }}>🐾 All Puzzles</div>
-      {PUZZLE_LIST.map(({ puzzle }) => (
-        <PuzzleCard key={puzzle.id} puzzle={puzzle} onClick={() => onPlay(puzzle)} />
-      ))}
+      {PUZZLE_LIST.map((entry) => {
+        const started = Math.round(getPuzzleProgress(entry.puzzle) * 100) > 0;
+        const locked = !entry.free && !started && credits <= 0;
+        return (
+          <PuzzleCard key={entry.puzzle.id} puzzle={entry.puzzle} isFree={entry.free} locked={locked} onClick={() => handlePuzzleClick(entry)} />
+        );
+      })}
     </div>
   );
 }
 
-function PuzzlesTab({ onPlay }) {
+function PuzzlesTab({ onPlay, credits, onSpendCredit }) {
+  const handlePuzzleClick = (entry) => {
+    if (entry.free) { onPlay(entry.puzzle); return; }
+    const pct = Math.round(getPuzzleProgress(entry.puzzle) * 100);
+    if (pct > 0) { onPlay(entry.puzzle); return; }
+    if (credits <= 0) return;
+    if (onSpendCredit()) onPlay(entry.puzzle);
+  };
   return (
     <div style={{ padding: "20px 20px 0", maxWidth: 480, margin: "0 auto", width: "100%" }}>
+      <CreditsBadge credits={credits} />
       <div style={{ fontSize: 11, color: C.muted, letterSpacing: 2, textTransform: "uppercase", fontWeight: 800, marginBottom: 12 }}>🧩 All Puzzles</div>
-      {PUZZLE_LIST.map(({ puzzle }) => (
-        <PuzzleCard key={puzzle.id} puzzle={puzzle} onClick={() => onPlay(puzzle)} />
-      ))}
+      {PUZZLE_LIST.map((entry) => {
+        const started = Math.round(getPuzzleProgress(entry.puzzle) * 100) > 0;
+        const locked = !entry.free && !started && credits <= 0;
+        return (
+          <PuzzleCard key={entry.puzzle.id} puzzle={entry.puzzle} isFree={entry.free} locked={locked} onClick={() => handlePuzzleClick(entry)} />
+        );
+      })}
     </div>
   );
 }
 
-function ProfileTab({ displayName, session, onSignOut }) {
+function ProfileTab({ displayName, session, credits, onSignOut }) {
   const [progress, setProgress] = useState([]);
   const [streak, setStreak] = useState({ current_streak: 0, longest_streak: 0 });
   const [loading, setLoading] = useState(true);
@@ -117,8 +155,8 @@ function ProfileTab({ displayName, session, onSignOut }) {
       </div>
       <div style={{ display: "flex", gap: 8, marginBottom: 24 }}>
         {[
+          { label: "Credits", value: `🪙 ${credits}` },
           { label: "Streak", value: `${streak.current_streak}d` },
-          { label: "Best", value: `${streak.longest_streak}d` },
           { label: "Completed", value: completed.length },
           { label: "Top Score", value: bestScore > 0 ? `${Math.round(bestScore / 100) * 100}` : "-" },
         ].map(({ label, value }) => (
@@ -171,15 +209,15 @@ function ProfileTab({ displayName, session, onSignOut }) {
   );
 }
 
-export default function HomeScreenWithAuth({ displayName, session, onPlay, onSignOut }) {
+export default function HomeScreenWithAuth({ displayName, session, credits, onSpendCredit, onPlay, onSignOut }) {
   const [tab, setTab] = useState("home");
 
   return (
     <div style={{ fontFamily: "'Nunito',sans-serif", background: C.bg, height: "100vh", display: "flex", flexDirection: "column", overflowX: "hidden" }}>
       <div style={{ flex: 1, overflowY: "auto", paddingTop: 16, paddingBottom: 80 }}>
-        {tab === "home" && <HomeTab onPlay={onPlay} />}
-        {tab === "puzzles" && <PuzzlesTab onPlay={onPlay} />}
-        {tab === "profile" && <ProfileTab displayName={displayName} session={session} onSignOut={onSignOut} />}
+        {tab === "home" && <HomeTab onPlay={onPlay} credits={credits} onSpendCredit={onSpendCredit} />}
+        {tab === "puzzles" && <PuzzlesTab onPlay={onPlay} credits={credits} onSpendCredit={onSpendCredit} />}
+        {tab === "profile" && <ProfileTab displayName={displayName} session={session} credits={credits} onSignOut={onSignOut} />}
       </div>
       {/* Nav bar */}
       <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: C.paper, borderTop: `1px solid ${C.line}`, display: "flex", alignItems: "stretch", height: 64, boxShadow: "0 -4px 20px rgba(0,0,0,0.06)", zIndex: 100 }}>

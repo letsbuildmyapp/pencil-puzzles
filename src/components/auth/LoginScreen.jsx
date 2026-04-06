@@ -2,6 +2,7 @@ import { useState } from "react";
 import { C } from "../../constants";
 import { supa } from "../../lib/supabase";
 import { saveSession } from "../../lib/session";
+import { initCredits } from "../../lib/credits";
 import AuthInput from "./AuthInput";
 
 export default function LoginScreen({ onSuccess, onGoSignUp }) {
@@ -21,10 +22,12 @@ export default function LoginScreen({ onSuccess, onGoSignUp }) {
       const res = await supa.signIn(email.trim(), pass);
       if (res.error || !res.access_token) { setGlobalErr("Incorrect email or password."); return; }
       const session = { token: res.access_token, userId: res.user.id, email: res.user.email };
+      initCredits(session.userId);
       saveSession(session); onSuccess(session);
     } catch (err) {
       const displayName = email.split("@")[0];
       const localSession = { token: "local", userId: "local-" + btoa(email).slice(0, 12), email: email.trim(), local: true };
+      initCredits(localSession.userId);
       saveSession({ ...localSession, displayName });
       onSuccess(localSession, displayName);
     } finally { setLoading(false); }
@@ -50,6 +53,7 @@ export default function LoginScreen({ onSuccess, onGoSignUp }) {
         </div>
         <button onClick={() => {
           const demoSession = { token: "demo", userId: "demo-user", email: "test@test.com", demo: true };
+          initCredits(demoSession.userId);
           saveSession({ ...demoSession, displayName: "Demo User" });
           onSuccess(demoSession, "Demo User");
         }} disabled={loading} style={{ width: "100%", padding: "14px 0", background: "transparent", color: C.accent, border: `2px dashed ${C.accent}`, borderRadius: 10, fontFamily: "'Courier Prime',monospace", fontSize: 13, fontWeight: "bold", letterSpacing: 2, cursor: loading ? "not-allowed" : "pointer" }}>

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { C } from "./constants";
 import { supa } from "./lib/supabase";
 import { loadSession, saveSession, clearSession } from "./lib/session";
+import { getCredits, initCredits, spendCredit } from "./lib/credits";
 import OnboardingScreen from "./components/auth/OnboardingScreen";
 import SignUpScreen from "./components/auth/SignUpScreen";
 import LoginScreen from "./components/auth/LoginScreen";
@@ -14,6 +15,7 @@ export default function App() {
   const [displayName, setDisplayName] = useState("");
   const [screen, setScreen] = useState("home");
   const [puzzle, setPuzzle] = useState(null);
+  const [credits, setCredits] = useState(0);
 
   useEffect(() => {
     const saved = loadSession();
@@ -22,6 +24,7 @@ export default function App() {
         if (profile) {
           setSession(saved);
           setDisplayName(profile.display_name || saved.email);
+          setCredits(initCredits(saved.userId));
           setAuthStage("app");
         } else {
           clearSession();
@@ -29,6 +32,7 @@ export default function App() {
         }
       }).catch(() => {
         setSession(saved);
+        setCredits(initCredits(saved.userId));
         setAuthStage("app");
       });
     } else {
@@ -45,12 +49,14 @@ export default function App() {
   const handleSignUpSuccess = (sess, name) => {
     setSession(sess);
     setDisplayName(name);
+    setCredits(initCredits(sess.userId));
     supa.updateStreak(sess.userId, sess.token).catch(() => {});
     setAuthStage("app");
   };
 
   const handleLoginSuccess = async (sess, demoName) => {
     setSession(sess);
+    setCredits(initCredits(sess.userId));
     if (demoName) { setDisplayName(demoName); setAuthStage("app"); return; }
     try {
       const profile = await supa.getProfile(sess.userId, sess.token);
@@ -67,6 +73,13 @@ export default function App() {
     setDisplayName("");
     setScreen("home");
     setAuthStage("login");
+  };
+
+  const handleSpendCredit = () => {
+    if (!session) return false;
+    const ok = spendCredit(session.userId);
+    if (ok) setCredits(getCredits(session.userId));
+    return ok;
   };
 
   const handlePuzzleComplete = async (puzzleId, score) => {
@@ -98,6 +111,8 @@ export default function App() {
         <HomeScreenWithAuth
           displayName={displayName}
           session={session}
+          credits={credits}
+          onSpendCredit={handleSpendCredit}
           onPlay={p => { setPuzzle(p); setScreen("game"); }}
           onSignOut={handleSignOut}
         />

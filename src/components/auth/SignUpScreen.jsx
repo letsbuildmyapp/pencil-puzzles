@@ -2,6 +2,7 @@ import { useState } from "react";
 import { C } from "../../constants";
 import { supa } from "../../lib/supabase";
 import { saveSession } from "../../lib/session";
+import { initCredits } from "../../lib/credits";
 import AuthInput from "./AuthInput";
 
 export default function SignUpScreen({ onSuccess, onGoLogin }) {
@@ -32,10 +33,12 @@ export default function SignUpScreen({ onSuccess, onGoLogin }) {
       const login = await supa.signIn(email.trim(), pass);
       if (login.error) { setGlobalErr("Account created! Please log in."); onGoLogin(); return; }
       const session = { token: login.access_token, userId: login.user.id, email: login.user.email };
+      initCredits(session.userId);
       saveSession(session);
       onSuccess(session, name.trim());
     } catch (err) {
       const demoSession = { token: "demo", userId: "demo-" + Date.now(), email: email.trim(), demo: true };
+      initCredits(demoSession.userId);
       saveSession({ ...demoSession, displayName: name.trim() });
       onSuccess(demoSession, name.trim());
     } finally { setLoading(false); }
