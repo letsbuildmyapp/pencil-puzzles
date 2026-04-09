@@ -1,7 +1,7 @@
 import { useRef } from "react";
 import { C } from "../../constants";
 
-export default function DrawGrid({ userTile, refTile, showFeedback, onPaint }) {
+export default function DrawGrid({ userTile, refTile, showFeedback, onPaint, onInteract, done }) {
   const containerRef = useRef(null);
   const isDragging = useRef(false);
   const paintMode = useRef(1);
@@ -26,11 +26,12 @@ export default function DrawGrid({ userTile, refTile, showFeedback, onPaint }) {
     const key = `${cell.py},${cell.px}`;
     if (key === lastKey.current) return;
     lastKey.current = key;
-    onPaint(cell.py, cell.px, paintMode.current);
+    onPaint?.(cell.py, cell.px, paintMode.current);
   };
 
   const onPointerDown = (e) => {
     e.preventDefault();
+    if (showFeedback) onInteract?.();
     isDragging.current = true;
     lastKey.current = null;
     containerRef.current?.setPointerCapture(e.pointerId);
@@ -73,23 +74,27 @@ export default function DrawGrid({ userTile, refTile, showFeedback, onPaint }) {
     >
       {userTile.map((trow, py) => trow.map((v, px) => {
         const ref = refTile[py][px];
-        const isWrong = v && !ref;
+        const isWrong = showFeedback && v && !ref;
         const isMissing = showFeedback && !v && ref;
-        const isCorrect = v && ref;
+        const isCorrect = showFeedback && v && ref;
+        const isDone = done && v && ref;
         let bg;
-        if (isWrong) bg = C.wrongLight;
+        if (isDone) bg = C.correctLight;
+        else if (isWrong) bg = C.wrongLight;
         else if (isMissing) bg = "rgba(251,191,36,0.22)";
         else if (isCorrect) bg = C.correctLight;
+        else if (v) bg = "rgba(255,255,255,0.3)";
         else bg = "rgba(255,255,255,0.04)";
-        const glow = isWrong
-          ? `0 0 0 2px ${C.wrong}`
+        const glow = isDone
+          ? `0 0 0 2px ${C.correct}`
+          : isWrong ? `0 0 0 2px ${C.wrong}`
           : isMissing ? `0 0 0 2px #FBBF24`
           : isCorrect ? `0 0 0 2px ${C.correct}`
           : "none";
         return (
           <div key={`${py}-${px}`} style={{
             background: bg, borderRadius: 8,
-            border: isWrong ? `1.5px solid ${C.wrong}` : isMissing ? `1.5px dashed #FBBF24` : isCorrect ? `1.5px solid ${C.correct}` : `1.5px solid ${C.sheetBorder}`,
+            border: isDone ? `1.5px solid ${C.correct}` : isWrong ? `1.5px solid ${C.wrong}` : isMissing ? `1.5px dashed #FBBF24` : isCorrect ? `1.5px solid ${C.correct}` : v ? `1.5px solid rgba(255,255,255,0.35)` : `1.5px solid ${C.sheetBorder}`,
             boxShadow: glow,
             transition: "background 0.1s, box-shadow 0.1s, transform 0.08s",
             transform: v ? "scale(1)" : "scale(0.92)",

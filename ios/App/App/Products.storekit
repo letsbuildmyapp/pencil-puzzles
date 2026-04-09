@@ -1,0 +1,65 @@
+{
+  "identifier" : "3B64A066-E4C4-4FA3-B8B6-FF2E6BDD2D3A",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+    {
+      "displayPrice" : "0.99",
+      "familyShareable" : false,
+      "internalID" : "lil_bag_c",
+      "localizations" : [
+        {
+          "description" : "Unlock 1 puzzle of your choice",
+          "displayName" : "Lil' Bag O' Mystery",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.letsbuildmyapp.pencilpuzzles.lil_bag_c",
+      "referenceName" : "Lil' Bag O' Mystery",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "4.99",
+      "familyShareable" : false,
+      "internalID" : "box_c",
+      "localizations" : [
+        {
+          "description" : "Unlock 10 puzzles of your choice",
+          "displayName" : "Box O' Mystery",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.letsbuildmyapp.pencilpuzzles.box_c",
+      "referenceName" : "Box O' Mystery",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "9.99",
+      "familyShareable" : false,
+      "internalID" : "big_box",
+      "localizations" : [
+        {
+          "description" : "Unlock every puzzle, forever",
+          "displayName" : "Big Box O' Mystery",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.letsbuildmyapp.pencilpuzzles.big_box",
+      "referenceName" : "Big Box O' Mystery",
+      "type" : "NonConsumable"
+    }
+  ],
+  "settings" : {
+    "_applicationInternalID" : "6761513261",
+    "_developerTeamID" : "",
+    "_lastSynchronizedDate" : 1712380800
+  },
+  "subscriptionGroups" : [
+
+  ],
+  "version" : {
+    "major" : 4,
+    "minor" : 0
+  }
+}

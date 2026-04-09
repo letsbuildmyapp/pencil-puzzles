@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Pencil Puzzles</string>
+    <string name="title_activity_main">Pencil Puzzles</string>
+    <string name="package_name">com.letsbuildmyapp.pencilpuzzles</string>
+    <string name="custom_url_scheme">com.letsbuildmyapp.pencilpuzzles</string>
+</resources>

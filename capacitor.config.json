@@ -1,0 +1,22 @@
+{
+  "appId": "com.letsbuildmyapp.pencilpuzzles",
+  "appName": "Pencil Puzzles",
+  "webDir": "dist",
+  "plugins": {
+    "StatusBar": {
+      "overlaysWebView": false,
+      "style": "DARK",
+      "backgroundColor": "#FFF9F0"
+    },
+    "SplashScreen": {
+      "launchShowDuration": 2000,
+      "launchAutoHide": true,
+      "backgroundColor": "#FFF9F0",
+      "iosSpinnerStyle": "small",
+      "spinnerColor": "#A855F7",
+      "showSpinner": false,
+      "splashFullScreen": true,
+      "splashImmersive": true
+    }
+  }
+}

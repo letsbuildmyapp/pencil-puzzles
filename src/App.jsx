@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { C } from "./constants";
 import { supa } from "./lib/supabase";
 import { loadSession, saveSession, clearSession } from "./lib/session";
+import { initPurchases } from "./lib/purchases";
+import { giveWelcomeCredits } from "./lib/credits";
 import OnboardingScreen from "./components/auth/OnboardingScreen";
 import SignUpScreen from "./components/auth/SignUpScreen";
 import LoginScreen from "./components/auth/LoginScreen";
@@ -14,6 +16,9 @@ export default function App() {
   const [displayName, setDisplayName] = useState("");
   const [screen, setScreen] = useState("home");
   const [puzzle, setPuzzle] = useState(null);
+  const [showWelcome, setShowWelcome] = useState(false);
+
+  useEffect(() => { initPurchases(); }, []);
 
   useEffect(() => {
     const saved = loadSession();
@@ -45,13 +50,15 @@ export default function App() {
   const handleSignUpSuccess = (sess, name) => {
     setSession(sess);
     setDisplayName(name);
+    giveWelcomeCredits();
     supa.updateStreak(sess.userId, sess.token).catch(() => {});
+    setShowWelcome(true);
     setAuthStage("app");
   };
 
   const handleLoginSuccess = async (sess, demoName) => {
     setSession(sess);
-    if (demoName) { setDisplayName(demoName); setAuthStage("app"); return; }
+    if (demoName) { setDisplayName(demoName); giveWelcomeCredits(); setAuthStage("app"); return; }
     try {
       const profile = await supa.getProfile(sess.userId, sess.token);
       setDisplayName(profile?.display_name || sess.email);
@@ -77,7 +84,7 @@ export default function App() {
   if (authStage === "loading") {
     return (
       <div style={{ minHeight: "100vh", background: C.ink, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>
-        <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 32, fontWeight: 900, color: "#F5F0E8", letterSpacing: 3 }}>Pencil Puzzles</div>
+        <div style={{ fontFamily: "'Fredoka One',cursive", fontSize: 32, fontWeight: 900, color: "#F5F0E8", letterSpacing: 3 }}>Pencil Puzzles</div>
         <div style={{ width: 32, height: 32, border: "3px solid rgba(255,255,255,0.1)", borderTop: `3px solid ${C.accent}`, borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
       </div>
     );
@@ -100,6 +107,8 @@ export default function App() {
           session={session}
           onPlay={p => { setPuzzle(p); setScreen("game"); }}
           onSignOut={handleSignOut}
+          showWelcome={showWelcome}
+          onDismissWelcome={() => setShowWelcome(false)}
         />
       )}
     </>

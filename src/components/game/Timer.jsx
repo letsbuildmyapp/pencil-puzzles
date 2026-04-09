@@ -11,7 +11,7 @@ export default function Timer({ running, secs, onTick }) {
   const m = String(Math.floor(secs / 60)).padStart(2, "0");
   const s = String(secs % 60).padStart(2, "0");
   return (
-    <div style={{ background: C.accentLight, borderRadius: 8, padding: "4px 12px", color: C.accentText, fontFamily: "'JetBrains Mono',monospace", fontSize: 15, fontWeight: 600, letterSpacing: 2, border: `1px solid ${C.accent}22` }}>
+    <div style={{ background: C.accentLight, borderRadius: 8, padding: "4px 12px", color: C.accentText, fontFamily: "'Nunito',sans-serif", fontSize: 15, fontWeight: 600, letterSpacing: 2, border: `1px solid ${C.accent}22` }}>
       {m}:{s}
     </div>
   );

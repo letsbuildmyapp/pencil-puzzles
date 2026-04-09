@@ -17,7 +17,7 @@ const T = {
 };
 
 export const ELEPHANT_PUZZLE = {
-  id: "elephant", title: "Elephant", subtitle: "8×8 · Medium",
+  id: "elephant", title: "Elephant", subtitle: "8×8 · Easy",
   riddle: "I never forget a thing, and I'm the largest on land.\nI carry my trunk wherever I go — but I don't pack a bag.\nWhat am I?",
   solution: [
     [T.t0,  T.t0,  T.t1,  T.t2,  T.t3,  T.t4,  T.t0,  T.t0 ],
