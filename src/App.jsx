@@ -7,6 +7,7 @@ import { giveWelcomeCredits } from "./lib/credits";
 import OnboardingScreen from "./components/auth/OnboardingScreen";
 import SignUpScreen from "./components/auth/SignUpScreen";
 import LoginScreen from "./components/auth/LoginScreen";
+import ForgotPasswordScreen from "./components/auth/ForgotPasswordScreen";
 import HomeScreenWithAuth from "./components/home/HomeScreenWithAuth";
 import PuzzleGame from "./components/game/PuzzleGame";
 import VersusFlow from "./components/versus/VersusFlow";
@@ -18,6 +19,7 @@ export default function App() {
   const [screen, setScreen] = useState("home");
   const [puzzle, setPuzzle] = useState(null);
   const [showWelcome, setShowWelcome] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
 
   useEffect(() => { initPurchases(); }, []);
 
@@ -92,7 +94,8 @@ export default function App() {
   }
   if (authStage === "onboarding") return <OnboardingScreen onContinue={handleOnboardingDone} />;
   if (authStage === "signup") return <SignUpScreen onSuccess={handleSignUpSuccess} onGoLogin={() => setAuthStage("login")} />;
-  if (authStage === "login") return <LoginScreen onSuccess={handleLoginSuccess} onGoSignUp={() => setAuthStage("signup")} />;
+  if (authStage === "login") return <LoginScreen onSuccess={handleLoginSuccess} onGoSignUp={() => setAuthStage("signup")} onGoForgot={(email) => { setForgotEmail(email || ""); setAuthStage("forgot"); }} />;
+  if (authStage === "forgot") return <ForgotPasswordScreen initialEmail={forgotEmail} onBackToLogin={() => setAuthStage("login")} />;
 
   return (
     <>

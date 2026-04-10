@@ -4,7 +4,7 @@ import { supa } from "../../lib/supabase";
 import { saveSession } from "../../lib/session";
 import AuthInput from "./AuthInput";
 
-export default function LoginScreen({ onSuccess, onGoSignUp }) {
+export default function LoginScreen({ onSuccess, onGoSignUp, onGoForgot }) {
   const [email, setEmail] = useState("");
   const [pass, setPass] = useState("");
   const [errors, setErrors] = useState({});
@@ -40,6 +40,9 @@ export default function LoginScreen({ onSuccess, onGoSignUp }) {
         {globalErr && <div style={{ background: "#FFF0EE", border: `1px solid ${C.wrong}`, borderRadius: 8, padding: "10px 14px", fontSize: 12, color: C.wrong }}>{globalErr}</div>}
         <AuthInput label="Email" type="email" value={email} onChange={setEmail} placeholder="you@example.com" error={errors.email} name="email" autoComplete="email" />
         <AuthInput label="Password" type="password" value={pass} onChange={setPass} placeholder="Your password" error={errors.pass} name="password" autoComplete="current-password" />
+        <div style={{ textAlign: "right", marginTop: -8 }}>
+          <span onClick={() => onGoForgot?.(email)} style={{ fontSize: 12, color: C.accent, cursor: "pointer", fontWeight: 700 }}>Forgot password?</span>
+        </div>
         <button onClick={handleSubmit} disabled={loading} style={{ width: "100%", padding: "14px 0", marginTop: 8, background: loading ? "rgba(212,96,26,0.5)" : C.accent, color: "#fff", border: "none", borderRadius: 10, fontFamily: "'Nunito',sans-serif", fontSize: 13, fontWeight: "bold", letterSpacing: 2, cursor: loading ? "not-allowed" : "pointer", boxShadow: "0 4px 20px rgba(212,96,26,0.35)" }}>
           {loading ? "LOGGING IN..." : "LOG IN"}
         </button>

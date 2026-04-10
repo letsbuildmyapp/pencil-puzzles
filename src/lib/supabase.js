@@ -27,6 +27,25 @@ export const supa = {
     });
   },
 
+  async resetPassword(email) {
+    const r = await fetch(`${SUPA_URL}/auth/v1/recover`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: SUPA_KEY },
+      body: JSON.stringify({ email }),
+    });
+    // Supabase returns 200 with empty body on success, and also on unknown emails
+    // (to prevent account enumeration). Only surface explicit error responses.
+    if (!r.ok) {
+      try {
+        const d = await r.json();
+        return { error: d.msg || d.error_description || d.error || "Could not send reset email" };
+      } catch {
+        return { error: "Could not send reset email" };
+      }
+    }
+    return { ok: true };
+  },
+
   async getProfile(userId, token) {
     const r = await fetch(`${SUPA_URL}/rest/v1/profiles?id=eq.${userId}&select=*`, {
       headers: { apikey: SUPA_KEY, Authorization: `Bearer ${token}` },
