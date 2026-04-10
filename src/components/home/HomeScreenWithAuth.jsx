@@ -5,6 +5,7 @@ import { PUZZLE_LIST } from "../../puzzles/index";
 import SolutionPreview from "../shared/SolutionPreview";
 import StoreModal from "../shared/StoreModal";
 import { isUnlocked, spendCreditToUnlock, getCredits, addCredits, isAlwaysFree, getDailyPuzzle } from "../../lib/credits";
+import VersusTab from "../versus/VersusTab";
 
 function getPuzzleProgress(puzzle) {
   try {
@@ -330,7 +331,7 @@ function ConfirmUnlockModal({ puzzle, onConfirm, onCancel, onShop }) {
   );
 }
 
-export default function HomeScreenWithAuth({ displayName, session, onPlay, onSignOut, showWelcome, onDismissWelcome }) {
+export default function HomeScreenWithAuth({ displayName, session, onPlay, onStartVersus, onSignOut, showWelcome, onDismissWelcome }) {
   const [tab, setTab] = useState("home");
   const [storeOpen, setStoreOpen] = useState(false);
   const [pendingPuzzle, setPendingPuzzle] = useState(null);
@@ -410,6 +411,7 @@ export default function HomeScreenWithAuth({ displayName, session, onPlay, onSig
       <div style={{ flex: 1, overflowY: "auto", paddingTop: 16, paddingBottom: 96 }}>
         {tab === "home" && <HomeTab onPlay={handlePlay} />}
         {tab === "puzzles" && <PuzzlesTab onPlay={handlePlay} />}
+        {tab === "versus" && <VersusTab onStartVersus={onStartVersus} />}
         {tab === "profile" && <ProfileTab displayName={displayName} session={session} onSignOut={onSignOut} onOpenStore={() => setStoreOpen(true)} />}
       </div>
       {/* Nav bar */}
@@ -417,6 +419,7 @@ export default function HomeScreenWithAuth({ displayName, session, onPlay, onSig
         {[
           { id: "home", label: "Home", icon: "home" },
           { id: "puzzles", label: "Puzzles", icon: "puzzles" },
+          { id: "versus", label: "Versus", icon: "versus" },
           { id: "profile", label: "Profile", icon: "profile" },
         ].map(({ id, label, icon }) => {
           const active = tab === id;
@@ -424,6 +427,7 @@ export default function HomeScreenWithAuth({ displayName, session, onPlay, onSig
             <button key={id} onClick={() => setTab(id)} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, background: "none", border: "none", cursor: "pointer", position: "relative", color: active ? "#FF6B6B" : C.muted, transition: "color 0.15s" }}>
               {icon === "home" && <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>}
               {icon === "puzzles" && <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M20.5 11h-1.8c.2-.4.3-.9.3-1.5C19 7.6 17.6 6 15.8 6c-.6 0-1.1.4-1.3 1-.1.4-.4.6-.5.6s-.4-.2-.5-.6C13.3 6.4 12.8 6 12.2 6 10.4 6 9 7.6 9 9.5c0 .6.1 1.1.3 1.5H7.5C6.1 11 5 12.1 5 13.5v1.3c.4-.2.9-.3 1.5-.3 1.9 0 3.5 1.4 3.5 3.3 0 .6-.4 1.1-1 1.2-.4.1-.5.4-.5.5s.2.3.5.5c.6.1 1 .6 1 1.2V22h8c1.4 0 2.5-1.1 2.5-2.5v-1.8c.4.2.9.3 1.5.3 1.9 0 3.5-1.4 3.5-3.3 0-.6-.4-1.1-1-1.2-.4-.1-.5-.4-.5-.5s.2-.3.5-.5c.6-.1 1-.6 1-1.2V13.5C23 12.1 21.9 11 20.5 11z" /></svg>}
+              {icon === "versus" && <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 17.5L3 6V3h3l11.5 11.5" /><path d="M13 19l6-6" /><path d="M16 16l4 4" /><path d="M19 21l2-2" /><path d="M14.5 6.5L18 3h3v3l-3.5 3.5" /><path d="M5 14l5 5" /><path d="M5 19l-2 2" /><path d="M3 19l2 2" /></svg>}
               {icon === "profile" && <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" /></svg>}
               <span style={{ fontSize: 11, letterSpacing: 1, textTransform: "uppercase", fontFamily: "'Nunito',sans-serif", fontWeight: active ? "bold" : "normal" }}>{label}</span>
               {active && <div style={{ position: "absolute", bottom: 0, width: 32, height: 2, background: "#FF6B6B", borderRadius: "2px 2px 0 0" }} />}

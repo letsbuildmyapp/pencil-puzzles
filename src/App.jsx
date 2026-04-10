@@ -9,6 +9,7 @@ import SignUpScreen from "./components/auth/SignUpScreen";
 import LoginScreen from "./components/auth/LoginScreen";
 import HomeScreenWithAuth from "./components/home/HomeScreenWithAuth";
 import PuzzleGame from "./components/game/PuzzleGame";
+import VersusFlow from "./components/versus/VersusFlow";
 
 export default function App() {
   const [authStage, setAuthStage] = useState("loading");
@@ -101,11 +102,18 @@ export default function App() {
           onBack={() => { setScreen("home"); setPuzzle(null); }}
           onComplete={(score) => handlePuzzleComplete(puzzle.id, score)}
         />
+      ) : screen === "versus" ? (
+        <VersusFlow
+          session={session}
+          displayName={displayName}
+          onBack={() => setScreen("home")}
+        />
       ) : (
         <HomeScreenWithAuth
           displayName={displayName}
           session={session}
           onPlay={p => { setPuzzle(p); setScreen("game"); }}
+          onStartVersus={() => setScreen("versus")}
           onSignOut={handleSignOut}
           showWelcome={showWelcome}
           onDismissWelcome={() => setShowWelcome(false)}
