@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { C, ROWS, COLS } from "../../constants";
 import DrawGrid from "./DrawGrid";
+import { hapticSuccess, hapticWarning } from "../../lib/haptics";
 
 export default function TileSheet({ sel, puzzle, userGrid, onClose, onPaint, onClear, onNavigate, onSubmit, submitted }) {
   const [closing, setClosing] = useState(false);
@@ -23,7 +24,7 @@ export default function TileSheet({ sel, puzzle, userGrid, onClose, onPaint, onC
     if (!hasTileInk) { action(); return; }
     setShowFeedback(true);
     setCorrectFlash(true);
-    if (navigator.vibrate) navigator.vibrate([12, 40, 12]);
+    hapticSuccess();
     feedbackTimer.current = setTimeout(() => {
       setShowFeedback(false);
       setCorrectFlash(false);
@@ -50,7 +51,7 @@ export default function TileSheet({ sel, puzzle, userGrid, onClose, onPaint, onC
       flashCorrectThenAct(() => { onSubmit(sel.r, sel.c); setClosing(true); setTimeout(onClose, 300); });
     } else {
       showFeedbackBriefly();
-      if (navigator.vibrate) navigator.vibrate([40, 20, 40]);
+      hapticWarning();
     }
   };
 
@@ -61,7 +62,7 @@ export default function TileSheet({ sel, puzzle, userGrid, onClose, onPaint, onC
       flashCorrectThenAct(() => { onSubmit(sel.r, sel.c); onNavigate(next); });
     } else {
       showFeedbackBriefly();
-      if (navigator.vibrate) navigator.vibrate([40, 20, 40]);
+      hapticWarning();
     }
   };
 

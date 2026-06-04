@@ -6,6 +6,7 @@ import RiddleBanner from "./RiddleBanner";
 import MiniTilePreview from "../shared/MiniTilePreview";
 import FullPreview from "../shared/FullPreview";
 import Confetti from "../shared/Confetti";
+import { hapticLight, hapticSuccess, hapticWarning, hapticCelebrate } from "../../lib/haptics";
 
 const PARTICLE_COLORS = ['#4ADE80', '#86EFAC', '#FBBF24', '#818CF8', '#C026D3', '#FB923C'];
 
@@ -135,11 +136,17 @@ export default function PuzzleGame({ puzzle, onBack, onComplete }) {
   const handlePaint = useCallback((r, c, py, px, mode) => {
     if (done) return;
     setUserGrid(prev => {
+      if (prev[r][c][py][px] === mode) return prev;
+      const wasTileDone = isTileDone(prev, r, c);
       const newGrid = prev.map((row, ri) => row.map((tile, ci) => {
         if (ri !== r || ci !== c) return tile;
-        if (tile[py][px] === mode) return tile;
         return tile.map((trow, ty) => trow.map((v, tx) => ty === py && tx === px ? mode : v));
       }));
+      // Haptic: a light tick each time a cell is filled in.
+      if (mode === 1) hapticLight();
+      // Haptic: a success buzz when this tile becomes fully complete.
+      const hasInk = puzzle.solution[r][c].flat().some(Boolean);
+      if (hasInk && !wasTileDone && isTileDone(newGrid, r, c)) hapticSuccess();
       let allDone = true;
       outer: for (let rr = 0; rr < 8; rr++) for (let cc = 0; cc < 8; cc++) {
         if (!isTileDone(newGrid, rr, cc)) { allDone = false; break outer; }
@@ -153,7 +160,7 @@ export default function PuzzleGame({ puzzle, onBack, onComplete }) {
       }
       return newGrid;
     });
-  }, [done, isTileDone]);
+  }, [done, isTileDone, puzzle]);
 
   const [showStartOverConfirm, setShowStartOverConfirm] = useState(false);
 
@@ -181,7 +188,7 @@ export default function PuzzleGame({ puzzle, onBack, onComplete }) {
     const hasInk = puzzle.solution[r][c].flat().some(Boolean);
     const correct = isTileDone(userGrid, r, c);
     if (correct || !hasInk) {
-      if (navigator.vibrate) navigator.vibrate([12, 30, 8]);
+      hapticSuccess();
       triggerAnim(r, c, "tile-glow", 800);
 
       // Green flash + cell reveal
@@ -230,7 +237,7 @@ export default function PuzzleGame({ puzzle, onBack, onComplete }) {
             prevGreen.current.add(`col${c}`); newPopCols.add(c);
           }
           if (newPopRows.size || newPopCols.size) {
-            if (navigator.vibrate) navigator.vibrate([15, 20, 15, 20, 60]);
+            hapticCelebrate();
             setPopRows(p => new Set([...p, ...newPopRows]));
             setPopCols(p => new Set([...p, ...newPopCols]));
             const bannerText = newPopRows.size && newPopCols.size
@@ -248,7 +255,7 @@ export default function PuzzleGame({ puzzle, onBack, onComplete }) {
         });
       }, 50);
     } else {
-      if (navigator.vibrate) navigator.vibrate([40, 20, 40]);
+      hapticWarning();
       triggerAnim(r, c, "tile-shake", 500);
     }
   };
@@ -309,7 +316,7 @@ export default function PuzzleGame({ puzzle, onBack, onComplete }) {
                         ref={el => { tileRefs.current[`${ri},${ci}`] = el; }}
                         className={isGreen ? "" : "tile-slot"}
                         onClick={() => {
-                          if (navigator.vibrate) navigator.vibrate(8);
+                          hapticLight();
                           triggerAnim(ri, ci, "tile-bounce", 400);
                           setSelected({ r: ri, c: ci });
                         }}
