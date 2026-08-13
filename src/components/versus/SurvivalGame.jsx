@@ -5,6 +5,7 @@ import MiniTilePreview from "../shared/MiniTilePreview";
 import { joinTerritoryMatch } from "../../lib/versus";
 import { createBotMatchChannel } from "../../lib/versus-bot";
 import { computeFilteredClaimableTiles } from "../../lib/tiles";
+import { adsAvailable, showRewarded } from "../../lib/ads";
 
 const MAX_HEARTS = 3;
 
@@ -40,6 +41,14 @@ export default function SurvivalGame({ match, session, onBack, onGameEnd }) {
   const [gameOver, setGameOver] = useState(false);
   const [opponentQuit, setOpponentQuit] = useState(false);
   const [confirmForfeit, setConfirmForfeit] = useState(false);
+
+  // Ad-funded revive. Offered once per match, and only against a bot: a human
+  // opponent would be left waiting through a 30-second ad, and the realtime
+  // channel would carry a "dead" state that we then walk back.
+  const [reviveOffer, setReviveOffer] = useState(false);
+  const [reviveUsed, setReviveUsed] = useState(false);
+  const [reviving, setReviving] = useState(false);
+  const canOfferRevive = !!match.isBot && adsAvailable() && !reviveUsed;
 
   const channelRef = useRef(null);
   const gameOverRef = useRef(false);
@@ -170,6 +179,15 @@ export default function SurvivalGame({ match, session, onBack, onGameEnd }) {
     else if (oppState === "dead") outcome = { winner: "me", reason: "opponent_dead" };
     if (!outcome) return;
 
+    // A plain death against a bot gets one chance to come back before the
+    // match is scored. Forfeits and ties skip the offer — there's nothing to
+    // revive into. Returning without arming endScheduledRef lets this effect
+    // re-evaluate once the player answers the prompt.
+    if (canOfferRevive && outcome.reason === "dead") {
+      setReviveOffer(true);
+      return;
+    }
+
     endScheduledRef.current = true;
     setGameOver(true);
     const delayMs = outcome.reason === "forfeit" ? 1400 : 1800;
@@ -184,7 +202,7 @@ export default function SurvivalGame({ match, session, onBack, onGameEnd }) {
         mode: "survival",
       });
     }, delayMs);
-  }, [gameStarted, opponentQuit, iDead, oppState, myHearts, oppHearts, onGameEnd, opponent.displayName, puzzle]);
+  }, [gameStarted, opponentQuit, iDead, oppState, myHearts, oppHearts, onGameEnd, opponent.displayName, puzzle, canOfferRevive]);
 
   const handleTileClick = (r, c) => {
     if (!gameStarted || gameOver) return;
@@ -244,6 +262,23 @@ export default function SurvivalGame({ match, session, onBack, onGameEnd }) {
   const handleWrong = useCallback(() => {
     setMyHearts(prev => Math.max(0, prev - 1));
   }, []);
+
+  // Both paths mark the revive as spent, which clears canOfferRevive and lets
+  // the end-of-match effect run to completion on its next pass. A failed or
+  // unavailable ad is treated as a decline rather than a free revive.
+  async function handleRevive() {
+    setReviving(true);
+    const earned = await showRewarded();
+    setReviveUsed(true);
+    setReviveOffer(false);
+    setReviving(false);
+    if (earned) setMyHearts(1);
+  }
+
+  function handleDeclineRevive() {
+    setReviveUsed(true);
+    setReviveOffer(false);
+  }
 
   const handleSheetClose = () => setSelected(null);
 
@@ -490,6 +525,65 @@ export default function SurvivalGame({ match, session, onBack, onGameEnd }) {
       )}
 
       {/* Forfeit confirmation modal */}
+      {reviveOffer && (
+        <>
+          <div
+            style={{
+              position: "absolute", inset: 0, zIndex: 500,
+              background: "rgba(10,6,2,0.72)",
+              backdropFilter: "blur(3px)", WebkitBackdropFilter: "blur(3px)",
+            }}
+          />
+          <div
+            style={{
+              position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)",
+              zIndex: 501, background: C.paper, borderRadius: 20,
+              padding: "26px 24px 18px", width: "calc(100vw - 48px)", maxWidth: 340,
+              boxShadow: "0 20px 60px rgba(0,0,0,0.45)",
+              fontFamily: "'Nunito',sans-serif",
+            }}
+          >
+            <div style={{ fontSize: 48, textAlign: "center", marginBottom: 8 }}>💔</div>
+            <div style={{
+              fontFamily: "'Fredoka One',cursive", fontSize: 22, color: C.ink,
+              textAlign: "center", marginBottom: 6, letterSpacing: 0.3,
+            }}>
+              Out of hearts!
+            </div>
+            <div style={{
+              fontSize: 13, color: C.muted, textAlign: "center",
+              fontWeight: 600, lineHeight: 1.45, marginBottom: 20,
+            }}>
+              Watch a short ad to get back in with 1 heart. One revive per match.
+            </div>
+            <button
+              disabled={reviving}
+              onClick={handleRevive}
+              style={{
+                width: "100%", padding: "15px 0", marginBottom: 10,
+                background: "linear-gradient(135deg,#F59E0B,#FBBF24)", border: "none",
+                borderRadius: 14, color: "#fff", fontFamily: "'Fredoka One',cursive",
+                fontSize: 17, letterSpacing: 0.3, cursor: reviving ? "default" : "pointer",
+                boxShadow: "0 6px 20px rgba(245,158,11,0.45)", opacity: reviving ? 0.6 : 1,
+              }}
+            >
+              {reviving ? "Loading ad…" : "▶ Watch Ad — Continue"}
+            </button>
+            <button
+              disabled={reviving}
+              onClick={handleDeclineRevive}
+              style={{
+                width: "100%", padding: "12px 0", background: "none", border: "none",
+                color: C.muted, fontFamily: "'Nunito',sans-serif", fontSize: 13,
+                fontWeight: 800, letterSpacing: 1, cursor: reviving ? "default" : "pointer",
+              }}
+            >
+              GIVE UP
+            </button>
+          </div>
+        </>
+      )}
+
       {confirmForfeit && (
         <>
           <div

@@ -7,6 +7,7 @@ import {
   recordPvpMatch,
 } from "../../lib/pvpRewards";
 import { trackPvpMatch } from "../../lib/analytics";
+import { recordFinishedMatch, showInterstitial } from "../../lib/ads";
 import TerritoryGame from "./TerritoryGame";
 import RowRumbleGame from "./RowRumbleGame";
 import SabotageGame from "./SabotageGame";
@@ -24,6 +25,9 @@ export default function VersusFlow({ session, displayName, mode = "territory", o
   const [error, setError] = useState(null);
   const [searchKey, setSearchKey] = useState(0); // bump to re-search after Play Again
   const searchRef = useRef(null);
+  // Set when the finished match lands on an interstitial boundary. The ad is
+  // held until the player leaves the result screen.
+  const pendingAdRef = useRef(false);
 
   useEffect(() => {
     // Defer the subscription so React StrictMode's dev double-mount can unmount
@@ -74,6 +78,7 @@ export default function VersusFlow({ session, displayName, mode = "territory", o
       opponentName: r?.opponentName || match?.opponent?.displayName,
     });
     const winBonusCredit = won ? (grantFirstWinBonusIfEligible() ? 1 : 0) : 0;
+    pendingAdRef.current = recordFinishedMatch();
     // Pull the match-start bonus forward so the result screen can surface
     // all credits earned from this single match in one place.
     const matchBonusCredit = match?.matchBonusCredit || 0;
@@ -89,12 +94,26 @@ export default function VersusFlow({ session, displayName, mode = "territory", o
     setStage("result");
   }, [match]);
 
-  const handlePlayAgain = () => {
+  // Both exits from the result screen run the pending interstitial first, so
+  // the ad lands between matches rather than over the reward reveal.
+  const runPendingAd = useCallback(async () => {
+    if (!pendingAdRef.current) return;
+    pendingAdRef.current = false;
+    await showInterstitial();
+  }, []);
+
+  const handlePlayAgain = async () => {
+    await runPendingAd();
     setMatch(null);
     setResult(null);
     setError(null);
     setStage("searching");
     setSearchKey(k => k + 1);
+  };
+
+  const handleResultBack = async () => {
+    await runPendingAd();
+    onBack();
   };
 
   if (stage === "searching") {
@@ -122,7 +141,7 @@ export default function VersusFlow({ session, displayName, mode = "territory", o
     );
   }
   if (stage === "result" && result) {
-    return <VersusResult result={result} onPlayAgain={handlePlayAgain} onBack={onBack} />;
+    return <VersusResult result={result} onPlayAgain={handlePlayAgain} onBack={handleResultBack} />;
   }
   return null;
 }
