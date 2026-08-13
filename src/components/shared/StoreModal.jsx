@@ -12,10 +12,14 @@ const PACKAGE_META = {
 
 const ORDER = ["lil_bag", "box", "big_box"];
 
+// Every pack carries this. There's no separate Remove Ads product: paying for
+// anything clears the forced interstitials for good. Worded around the ads the
+// player is actually forced to sit through, because the opt-in "watch for a
+// credit" offers survive a purchase and a flat "no more ads" would read as a
+// broken promise the first time one appears.
+const AD_FREE_PERK = "✨ Removes ads between matches, forever";
+
 function identifierKey(id) {
-  // remove_ads is checked first — it isn't a credit pack, and matching it
-  // against the "box" substring rules below would misfile it.
-  if (id.includes("remove_ads")) return "remove_ads";
   if (id.includes("big_box")) return "big_box";
   if (id.includes("lil_bag")) return "lil_bag";
   if (id.includes("box")) return "box";
@@ -56,10 +60,9 @@ export default function StoreModal({ onClose, onPurchased }) {
     ? ORDER.map(key => offering.availablePackages?.find(p => identifierKey(p.product.identifier) === key)).filter(Boolean)
     : [];
 
-  // Rendered on its own below the credit packs — it sells a different thing.
-  const removeAdsPkg = offering?.availablePackages?.find(
-    p => identifierKey(p.product.identifier) === "remove_ads"
-  );
+  // Only worth advertising where ads actually run, and only to someone who
+  // hasn't already bought their way out of them.
+  const showAdFreePerk = adsAvailable() && !adFree;
 
   async function handleWatchForCredit() {
     setWatching(true);
@@ -189,6 +192,9 @@ export default function StoreModal({ onClose, onPurchased }) {
                   <div style={{ fontFamily: "'Fredoka One',cursive", fontSize: 17, color: isBest ? "#fff" : C.ink, letterSpacing: 0.3 }}>{meta.title}</div>
                   <div style={{ fontSize: 12, color: isBest ? "rgba(255,255,255,0.8)" : C.muted, marginTop: 2, fontWeight: 600 }}>{meta.desc}</div>
                   <div style={{ fontSize: 13, color: isBest ? "#FBBF24" : C.accent, fontWeight: 900, marginTop: 4 }}>{meta.credits}</div>
+                  {showAdFreePerk && (
+                    <div style={{ fontSize: 11, color: isBest ? "rgba(255,255,255,0.85)" : C.muted, fontWeight: 700, marginTop: 4 }}>{AD_FREE_PERK}</div>
+                  )}
                 </div>
                 <div style={{ flexShrink: 0, background: isBest ? "#FBBF24" : C.accent, color: isBest ? "#2D1B69" : "#fff", borderRadius: 12, padding: "8px 14px", fontSize: 14, fontWeight: 900, fontFamily: "'Fredoka One',cursive", minWidth: 56, textAlign: "center" }}>
                   {busy ? "..." : pkg.product.priceString}
@@ -196,26 +202,6 @@ export default function StoreModal({ onClose, onPurchased }) {
               </div>
             );
           })
-        )}
-
-        {/* Remove Ads. Only sells the removal of the forced interstitials —
-            the rewarded offers above stay available afterwards, so a buyer
-            doesn't lose their free source of credits. */}
-        {removeAdsPkg && !adFree && (
-          <div
-            onClick={() => !purchasing && !restoring && !watching && handlePurchase(removeAdsPkg)}
-            style={{ background: C.surface, border: `2px solid ${C.border}`, borderRadius: 18, padding: "16px 18px", marginTop: 4, marginBottom: 4, cursor: "pointer", display: "flex", alignItems: "center", gap: 14, opacity: (purchasing && purchasing !== removeAdsPkg.identifier) ? 0.5 : 1 }}
-          >
-            <div style={{ fontSize: 32, flexShrink: 0 }}>🚫</div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontFamily: "'Fredoka One',cursive", fontSize: 17, color: C.ink, letterSpacing: 0.3 }}>Remove Ads</div>
-              <div style={{ fontSize: 12, color: C.muted, marginTop: 2, fontWeight: 600 }}>No more ads between matches, forever</div>
-              <div style={{ fontSize: 13, color: C.accent, fontWeight: 900, marginTop: 4 }}>Keeps your free "watch for credit" offers</div>
-            </div>
-            <div style={{ flexShrink: 0, background: C.accent, color: "#fff", borderRadius: 12, padding: "8px 14px", fontSize: 14, fontWeight: 900, fontFamily: "'Fredoka One',cursive", minWidth: 56, textAlign: "center" }}>
-              {purchasing === removeAdsPkg.identifier ? "..." : removeAdsPkg.product.priceString}
-            </div>
-          </div>
         )}
 
         {error && (

@@ -1,7 +1,8 @@
 // AdMob wrapper. Three layers, per the monetization plan:
 //   1. Rewarded video  — opt-in, the player chooses to watch for a reward
 //   2. Interstitial    — forced, between PvP matches, every Nth match
-//   3. Remove Ads IAP  — kills interstitials only; rewarded stays available
+//   3. Ad-free        — any paid purchase kills interstitials for good;
+//                        the opt-in rewarded offers stay available
 //
 // Everything here no-ops on web (AdMob is native-only), so callers can invoke
 // these unconditionally and just check the return value.
@@ -17,9 +18,14 @@ import { AdMob, RewardAdPluginEvents, AdmobConsentStatus } from "@capacitor-comm
 // the real IDs below when the AdMob app is created — leave the test IDs in the
 // TEST_UNITS block so a dev build can still force them via USE_TEST_ADS.
 //
-// Live units go here (from the AdMob console, one pair per platform):
+// Live units go here (from the AdMob console, one pair per platform).
+// Android has no AdMob app yet — the app was never published there — so its
+// units stay empty and unitFor() falls back to the test IDs below.
 const LIVE_UNITS = {
-  ios: { rewarded: "", interstitial: "" },
+  ios: {
+    rewarded: "ca-app-pub-4856636200336756/3952501068",
+    interstitial: "ca-app-pub-4856636200336756/8670279154",
+  },
   android: { rewarded: "", interstitial: "" },
 };
 
@@ -34,8 +40,10 @@ const TEST_UNITS = {
   },
 };
 
-// Flip to false once LIVE_UNITS are filled in and the app is ready to earn.
-const USE_TEST_ADS = true;
+// Flip to true to force Google's test units — do that before testing on a real
+// device, because tapping a live ad on your own build is invalid traffic and
+// can get the AdMob account suspended.
+const USE_TEST_ADS = false;
 
 function unitFor(kind) {
   const platform = Capacitor.getPlatform() === "ios" ? "ios" : "android";
@@ -63,9 +71,9 @@ const INTERSTITIAL_EVERY = 3; // show on every 3rd finished PvP match
 // ---------------------------------------------------------------------------
 // Ad-free state
 //
-// Written by purchases.js when the remove_ads entitlement is seen (at init,
-// after a purchase, or after a restore). Mirrored into localStorage so the
-// very first frame after launch already knows, before RevenueCat responds.
+// Written by purchases.js after any purchase, and at init or restore when the
+// big_box entitlement is seen. Kept in localStorage so the very first frame
+// after launch already knows, before RevenueCat responds.
 
 export function isAdFree() {
   return localStorage.getItem(AD_FREE_KEY) === "true";
@@ -105,6 +113,32 @@ async function _doInit() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// App Tracking Transparency (iOS 14+)
+//
+// Without ATT authorization the SDK can't read the IDFA, so every ad serves
+// non-personalized and earns noticeably less. Apple only allows one prompt per
+// install, so it's spent on the first ad rather than on launch: a player who
+// has just chosen to watch an ad understands what the dialog is for, which
+// converts far better than the same dialog thrown at a cold first launch.
+//
+// The cost of waiting is that the very first ad request goes out before the
+// answer is known, so that one ad is non-personalized. Every later one isn't.
+
+let _attAsked = false;
+
+async function ensureTrackingAuthorization() {
+  if (_attAsked || Capacitor.getPlatform() !== "ios") return;
+  _attAsked = true;
+  try {
+    const { status } = await AdMob.trackingAuthorizationStatus();
+    if (status === "notDetermined") await AdMob.requestTrackingAuthorization();
+  } catch (e) {
+    // Never let the prompt block the ad — non-personalized still pays.
+    console.log("[ads] ATT request failed:", e?.message || String(e));
+  }
+}
+
 export function initAds() {
   if (!isNative()) return Promise.resolve();
   if (!_initPromise) {
@@ -125,6 +159,7 @@ export function initAds() {
 export async function showRewarded() {
   if (!isNative()) return false;
   await initAds();
+  await ensureTrackingAuthorization();
 
   let earned = false;
   const listener = await AdMob.addListener(RewardAdPluginEvents.Rewarded, () => {
@@ -200,8 +235,8 @@ export function recordAdUnlock(puzzleId) {
 // interstitial over the win/XP reveal would step on the best moment in the
 // match, and it's also the moment players are most likely to rage-quit.
 //
-// The counter advances even for ad-free players, so buying Remove Ads
-// mid-session doesn't shift where the boundary would otherwise have fallen.
+// The counter advances even for ad-free players, so going ad-free mid-session
+// doesn't shift where the boundary would otherwise have fallen.
 // Returns true if this match lands on an interstitial boundary.
 export function recordFinishedMatch() {
   const count = parseInt(localStorage.getItem(MATCH_COUNT_KEY) || "0", 10) + 1;
@@ -218,6 +253,7 @@ export async function showInterstitial() {
   if (isAdFree() || !isNative()) return false;
   try {
     await initAds();
+    await ensureTrackingAuthorization();
     await AdMob.prepareInterstitial({ adId: unitFor("interstitial") });
     await AdMob.showInterstitial();
     return true;

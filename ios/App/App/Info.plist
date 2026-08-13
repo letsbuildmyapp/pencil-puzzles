@@ -47,11 +47,15 @@
 	<true/>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
-	<!-- AdMob app ID. Currently Google's test ID — replace with the real one
-	     from the AdMob console alongside the unit IDs in src/lib/ads.js.
+	<!-- App Tracking Transparency. Required for the ATT prompt to appear at
+	     all: without this key iOS refuses the request silently and every ad
+	     stays non-personalized. Shown on the first ad, not at launch. -->
+	<key>NSUserTrackingUsageDescription</key>
+	<string>This lets us show ads that are more relevant to you, which keeps Pencil Puzzles free to play.</string>
+	<!-- AdMob app ID for Pencil Puzzle Mystery (iOS).
 	     The SDK asserts on launch if this key is missing entirely. -->
 	<key>GADApplicationIdentifier</key>
-	<string>ca-app-pub-3940256099942544~1458002511</string>
+	<string>ca-app-pub-4856636200336756~4845946180</string>
 	<!-- SKAdNetwork IDs for AdMob's ad-network partners. Required for iOS
 	     install attribution; the SDK logs a warning at launch without them.
 	     Source: developers.google.com/admob/ios/quick-start -->

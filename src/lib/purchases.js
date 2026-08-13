@@ -9,11 +9,20 @@ const RC_API_KEY = "appl_UYsLCpOqJGnFjeejppOmbustVTW";
 // Promise-based guard prevents concurrent configure() calls
 let _initPromise = null;
 
-// RevenueCat is the source of truth for ad-free status; ads.js reads a
-// localStorage mirror so the first frame after launch doesn't have to wait on
-// the network. Mirror it every time we see fresh customer info.
-function syncAdFree(customerInfo) {
-  setAdFree(!!customerInfo?.entitlements?.active?.remove_ads);
+// Any purchase makes the player ad-free, permanently.
+//
+// This only ever grants, never revokes, and that asymmetry is deliberate.
+// Every product here is a one-time buy with nothing to lapse, and the credit
+// packs are consumables: Apple cannot restore a consumable, so RevenueCat
+// reports no entitlement for one after a reinstall. If this cleared ad-free
+// whenever it saw customer info without an entitlement, a player who bought
+// credits would lose ad-free on the next launch that reached RevenueCat.
+//
+// The entitlement check still matters — big_box is the one product that grants
+// a real entitlement, so it's what carries ad-free onto a new device via
+// Restore Purchases. The credit packs can't: Apple doesn't restore consumables.
+function grantAdFreeIfEntitled(customerInfo) {
+  if (customerInfo?.entitlements?.active?.big_box) setAdFree(true);
 }
 
 function getSDK() {
@@ -36,7 +45,7 @@ async function _doInit() {
     if (customerInfo?.entitlements?.active?.big_box) {
       addCredits(Infinity);
     }
-    syncAdFree(customerInfo);
+    grantAdFreeIfEntitled(customerInfo);
   } catch (e) {
     console.log("[RC] init failed:", e?.message || String(e));
     _initPromise = null; // allow retry on next call
@@ -77,7 +86,8 @@ export async function purchasePackage(pkg) {
   const { customerInfo } = await SDK.purchasePackage({ aPackage: pkg });
   const productId = pkg.product.identifier;
   const priceStr = pkg.product?.priceString || "";
-  syncAdFree(customerInfo);
+  // Any purchase, including a consumable credit pack, buys ad-free.
+  setAdFree(true);
   let amount = 0;
   if (productId.includes("big_box")) {
     addCredits(Infinity);
@@ -108,7 +118,7 @@ export async function restorePurchases() {
     if (customerInfo?.entitlements?.active?.big_box) {
       addCredits(Infinity);
     }
-    syncAdFree(customerInfo);
+    grantAdFreeIfEntitled(customerInfo);
   } catch (e) {
     console.warn("Restore failed:", e);
   }
