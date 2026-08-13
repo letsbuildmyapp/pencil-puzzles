@@ -85,7 +85,7 @@ export default function TileSheet({ sel, puzzle, userGrid, onClose, onPaint, onC
             Cell&nbsp;<span style={{ color: C.accentLight }}>{ROWS[sel.r]}{COLS[sel.c]}</span>
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            {hasTileInk && isTileDone && (
+            {hasTileInk && isTileDone && (isAlreadySubmitted || correctFlash) && (
               <div style={{ background: C.correct, color: "#fff", borderRadius: 20, padding: "4px 14px", fontSize: 10, fontFamily: "'Nunito',sans-serif", fontWeight: "bold", letterSpacing: 2, display: "flex", alignItems: "center", gap: 5 }}>
                 <span>✓</span><span>PERFECT</span>
               </div>
@@ -97,9 +97,9 @@ export default function TileSheet({ sel, puzzle, userGrid, onClose, onPaint, onC
         <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden", display: "flex", flexDirection: "column", alignItems: "center", padding: "14px 20px", gap: 14 }}>
           {/* Reference tile */}
           <div style={{ display: "flex", alignItems: "center", gap: 14, width: "100%", maxWidth: 320, background: "rgba(255,255,255,0.04)", borderRadius: 10, padding: "10px 14px", border: "1px solid rgba(255,255,255,0.07)", flexShrink: 0 }}>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(5,16px)", gridTemplateRows: "repeat(5,16px)", gap: 2, flexShrink: 0 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(5,16px)", gridTemplateRows: "repeat(5,16px)", gap: 4, flexShrink: 0 }}>
               {refTile.flat().map((v, i) => (
-                <div key={i} style={{ width: 16, height: 16, borderRadius: 2, background: v ? "#E8D5A3" : "rgba(255,255,255,0.03)" }} />
+                <div key={i} style={{ width: 16, height: 16, borderRadius: 2, background: v ? "#E8D5A3" : "rgba(255,255,255,0.1)", border: v ? "none" : "1px solid rgba(255,255,255,0.55)" }} />
               ))}
             </div>
             <div>

@@ -40,7 +40,7 @@ function FloatingStar({ x, y }) {
   );
 }
 
-export default function PuzzleGame({ puzzle, onBack, onComplete }) {
+export default function PuzzleGame({ puzzle, isAdmin, onBack, onComplete }) {
   const SAVE_KEY = `pp_grid_${puzzle.id}`;
   const [userGrid, setUserGrid] = useState(() => {
     try {
@@ -61,6 +61,12 @@ export default function PuzzleGame({ puzzle, onBack, onComplete }) {
     try { return JSON.parse(localStorage.getItem(SAVE_KEY) || "null")?.timerSecs || 0; } catch (e) { return 0; }
   });
   const [showCompleteModal, setShowCompleteModal] = useState(false);
+  const [hintRevealed, setHintRevealed] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(`pp_grid_${puzzle.id}`) || "null");
+      return !!saved?.hintRevealed;
+    } catch (e) { return false; }
+  });
   const [done, setDone] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem(SAVE_KEY) || "null");
@@ -86,6 +92,8 @@ export default function PuzzleGame({ puzzle, onBack, onComplete }) {
   const [banner, setBanner] = useState(null);
   const [revealingTiles, setRevealingTiles] = useState(new Set());
   const prevGreen = useRef(new Set());
+  const submittedRef = useRef(submitted);
+  useEffect(() => { submittedRef.current = submitted; }, [submitted]);
   const tileRefs = useRef({});
   const totalInk = useMemo(() => {
     let n = 0;
@@ -106,8 +114,8 @@ export default function PuzzleGame({ puzzle, onBack, onComplete }) {
   };
 
   useEffect(() => {
-    try { localStorage.setItem(SAVE_KEY, JSON.stringify({ grid: userGrid, submitted: [...submitted], timerSecs: timerSecsRef.current, done })); } catch (e) {}
-  }, [userGrid, submitted, done]);
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify({ grid: userGrid, submitted: [...submitted], timerSecs: timerSecsRef.current, done, hintRevealed })); } catch (e) {}
+  }, [userGrid, submitted, done, hintRevealed]);
 
   useEffect(() => {
     return () => {
@@ -145,15 +153,33 @@ export default function PuzzleGame({ puzzle, onBack, onComplete }) {
         if (!isTileDone(newGrid, rr, cc)) { allDone = false; break outer; }
       }
       if (allDone) {
-        setScore(100);
+        const finalScore = calcScore(timerSecsRef.current, hintRevealed);
+        setScore(finalScore);
         setDone(true); setShowCompleteModal(true); setSelected(null);
         setShowConfetti(true);
         setTimeout(() => setShowConfetti(false), 4000);
-        onComplete && onComplete(100);
+        onComplete && onComplete(finalScore, hintRevealed);
       }
       return newGrid;
     });
   }, [done, isTileDone]);
+
+  const handleAutoComplete = useCallback(() => {
+    if (done) return;
+    const solGrid = puzzle.solution.map(row => row.map(tile => tile.map(trow => [...trow])));
+    setUserGrid(solGrid);
+    const allKeys = new Set();
+    for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) allKeys.add(`${r},${c}`);
+    setSubmitted(allKeys);
+    const finalScore = calcScore(timerSecsRef.current, hintRevealed);
+    setScore(finalScore);
+    setDone(true);
+    setShowCompleteModal(true);
+    setSelected(null);
+    setShowConfetti(true);
+    setTimeout(() => setShowConfetti(false), 4000);
+    onComplete && onComplete(finalScore, hintRevealed);
+  }, [done, puzzle, hintRevealed, onComplete]);
 
   const [showStartOverConfirm, setShowStartOverConfirm] = useState(false);
 
@@ -166,6 +192,7 @@ export default function PuzzleGame({ puzzle, onBack, onComplete }) {
     setSelected(null);
     setShowCompleteModal(false);
     setShowStartOverConfirm(false);
+    setHintRevealed(false);
     prevGreen.current = new Set();
     try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
   };
@@ -179,90 +206,98 @@ export default function PuzzleGame({ puzzle, onBack, onComplete }) {
   const handleTileSubmit = (r, c) => {
     setSubmitted(prev => { const next = new Set(prev); next.add(`${r},${c}`); return next; });
     const hasInk = puzzle.solution[r][c].flat().some(Boolean);
-    const correct = isTileDone(userGrid, r, c);
-    if (correct || !hasInk) {
-      if (navigator.vibrate) navigator.vibrate([12, 30, 8]);
-      triggerAnim(r, c, "tile-glow", 800);
+    // TileSheet already verified correctness before calling onSubmit — no
+    // redundant check needed. All side effects stay outside state updaters.
+    if (navigator.vibrate) navigator.vibrate([12, 30, 8]);
+    triggerAnim(r, c, "tile-glow", 800);
 
-      // Green flash + cell reveal
-      if (hasInk) {
-        setFlashGreen(true);
-        setTimeout(() => setFlashGreen(false), 450);
-        setRevealingTiles(prev => new Set([...prev, `${r},${c}`]));
-        setTimeout(() => setRevealingTiles(prev => { const n = new Set(prev); n.delete(`${r},${c}`); return n; }), 25 * 38 + 400);
-      }
-
-      // Particles + floating star after tile sheet closes
-      if (hasInk) {
-        const rect = tileRefs.current[`${r},${c}`]?.getBoundingClientRect();
-        const cx = rect ? rect.left + rect.width / 2 : window.innerWidth / 2;
-        const cy = rect ? rect.top + rect.height / 2 : window.innerHeight / 2;
-        setTimeout(() => {
-          const id = Date.now() + Math.random();
-          setBursts(prev => [...prev, { id, x: cx, y: cy }]);
-          setFloaters(prev => [...prev, { id, x: cx, y: cy }]);
-          setTimeout(() => {
-            setBursts(prev => prev.filter(b => b.id !== id));
-            setFloaters(prev => prev.filter(f => f.id !== id));
-          }, 1100);
-        }, 350);
-      }
-
-      setTimeout(() => {
-        setUserGrid(grid => {
-          const newPopRows = new Set(), newPopCols = new Set();
-          let rowDone = true;
-          for (let c2 = 0; c2 < 8; c2++) {
-            const hInk = puzzle.solution[r][c2].flat().some(Boolean);
-            const green = (isTileDone(grid, r, c2) && hInk) || !hInk;
-            if (!green) { rowDone = false; break; }
-          }
-          if (rowDone && !prevGreen.current.has(`row${r}`)) {
-            prevGreen.current.add(`row${r}`); newPopRows.add(r);
-          }
-          let colDone = true;
-          for (let r2 = 0; r2 < 8; r2++) {
-            const hInk = puzzle.solution[r2][c].flat().some(Boolean);
-            const green = (isTileDone(grid, r2, c) && hInk) || !hInk;
-            if (!green) { colDone = false; break; }
-          }
-          if (colDone && !prevGreen.current.has(`col${c}`)) {
-            prevGreen.current.add(`col${c}`); newPopCols.add(c);
-          }
-          if (newPopRows.size || newPopCols.size) {
-            if (navigator.vibrate) navigator.vibrate([15, 20, 15, 20, 60]);
-            setPopRows(p => new Set([...p, ...newPopRows]));
-            setPopCols(p => new Set([...p, ...newPopCols]));
-            const bannerText = newPopRows.size && newPopCols.size
-              ? `Row ${ROWS[r]} & Col ${COLS[c]} Done!`
-              : newPopRows.size ? `Row ${ROWS[r]} Complete!`
-              : `Column ${COLS[c]} Complete!`;
-            setBanner(bannerText);
-            setTimeout(() => setBanner(null), 2200);
-            setTimeout(() => {
-              setPopRows(p => { const n = new Set(p); newPopRows.forEach(x => n.delete(x)); return n; });
-              setPopCols(p => { const n = new Set(p); newPopCols.forEach(x => n.delete(x)); return n; });
-            }, 400);
-          }
-          return grid;
-        });
-      }, 50);
-    } else {
-      if (navigator.vibrate) navigator.vibrate([40, 20, 40]);
-      triggerAnim(r, c, "tile-shake", 500);
+    // Green flash + cell reveal
+    if (hasInk) {
+      setFlashGreen(true);
+      setTimeout(() => setFlashGreen(false), 450);
+      setRevealingTiles(prev => new Set([...prev, `${r},${c}`]));
+      setTimeout(() => setRevealingTiles(prev => { const n = new Set(prev); n.delete(`${r},${c}`); return n; }), 25 * 38 + 400);
     }
+
+    // Particles + floating star after tile sheet closes
+    if (hasInk) {
+      const rect = tileRefs.current[`${r},${c}`]?.getBoundingClientRect();
+      const cx = rect ? rect.left + rect.width / 2 : window.innerWidth / 2;
+      const cy = rect ? rect.top + rect.height / 2 : window.innerHeight / 2;
+      setTimeout(() => {
+        const id = Date.now() + Math.random();
+        setBursts(prev => [...prev, { id, x: cx, y: cy }]);
+        setFloaters(prev => [...prev, { id, x: cx, y: cy }]);
+        setTimeout(() => {
+          setBursts(prev => prev.filter(b => b.id !== id));
+          setFloaters(prev => prev.filter(f => f.id !== id));
+        }, 1100);
+      }, 350);
+    }
+
+    // Row/column completion check — a row/column is complete when all 8
+    // tiles are in the submitted set. Uses submittedRef for the latest
+    // value (the closure `submitted` could be stale). Requires at least
+    // one ink tile to avoid celebrating all-blank rows/columns.
+    setTimeout(() => {
+      const sub = submittedRef.current;
+      const newPopRows = new Set(), newPopCols = new Set();
+
+      let rowDone = true, rowHasInk = false;
+      for (let c2 = 0; c2 < 8; c2++) {
+        if (puzzle.solution[r][c2].flat().some(Boolean)) rowHasInk = true;
+        if (!sub.has(`${r},${c2}`)) { rowDone = false; break; }
+      }
+      if (rowDone && rowHasInk && !prevGreen.current.has(`row${r}`)) {
+        prevGreen.current.add(`row${r}`); newPopRows.add(r);
+      }
+
+      let colDone = true, colHasInk = false;
+      for (let r2 = 0; r2 < 8; r2++) {
+        if (puzzle.solution[r2][c].flat().some(Boolean)) colHasInk = true;
+        if (!sub.has(`${r2},${c}`)) { colDone = false; break; }
+      }
+      if (colDone && colHasInk && !prevGreen.current.has(`col${c}`)) {
+        prevGreen.current.add(`col${c}`); newPopCols.add(c);
+      }
+
+      if (newPopRows.size || newPopCols.size) {
+        if (navigator.vibrate) navigator.vibrate([15, 20, 15, 20, 60]);
+        setPopRows(p => new Set([...p, ...newPopRows]));
+        setPopCols(p => new Set([...p, ...newPopCols]));
+        const bannerText = newPopRows.size && newPopCols.size
+          ? `Row ${ROWS[r]} & Col ${COLS[c]} Done!`
+          : newPopRows.size ? `Row ${ROWS[r]} Complete!`
+          : `Column ${COLS[c]} Complete!`;
+        setBanner(bannerText);
+        setTimeout(() => setBanner(null), 2200);
+        setTimeout(() => {
+          setPopRows(p => { const n = new Set(p); newPopRows.forEach(x => n.delete(x)); return n; });
+          setPopCols(p => { const n = new Set(p); newPopCols.forEach(x => n.delete(x)); return n; });
+        }, 400);
+      }
+    }, 50);
   };
 
   const progress = totalInk > 0 ? filledCorrect(userGrid) / totalInk : 0;
-  const multiplier = Math.max(1, 3 - Math.floor(timerSecs / 60));
+  const multiplier = timerSecs < 300 ? 3 : timerSecs < 600 ? 2 : 1;
+  const BASE_SCORE = 1000;
+  const calcScore = (secs, hintRevealed) => {
+    const mult = secs < 300 ? 3 : secs < 600 ? 2 : 1;
+    const raw = BASE_SCORE * mult;
+    return hintRevealed ? Math.floor(raw / 2) : raw;
+  };
 
   return (
-    <div style={{ fontFamily: "'Nunito',sans-serif", background: C.bg, height: "100vh", display: "flex", flexDirection: "column", overflow: "hidden", maxWidth: "100vw" }}>
+    <div style={{ fontFamily: "'Nunito',sans-serif", background: C.bg, height: "100vh", display: "flex", flexDirection: "column", overflow: "hidden", maxWidth: "100vw", userSelect: "none", WebkitUserSelect: "none" }}>
       {/* Header */}
       <div style={{ background: C.sheetBg, padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: "0 2px 16px rgba(0,0,0,0.2)", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <button onClick={onBack} style={{ background: "rgba(255,255,255,0.12)", border: "none", color: "rgba(255,255,255,0.8)", cursor: "pointer", fontFamily: "'Nunito',sans-serif", fontSize: 13, fontWeight: 800, padding: "6px 12px", borderRadius: 12 }}>← Back</button>
           <div style={{ color: "#fff", fontFamily: "'Fredoka One',cursive", fontSize: 22, letterSpacing: 0.5 }}>{puzzle.title}</div>
+          {isAdmin && !done && (
+            <button onClick={handleAutoComplete} style={{ background: "rgba(192,38,211,0.5)", border: "1px solid rgba(192,38,211,0.8)", color: "#fff", cursor: "pointer", fontFamily: "'Nunito',sans-serif", fontSize: 11, fontWeight: 800, padding: "4px 10px", borderRadius: 8, letterSpacing: 0.5 }}>AUTO</button>
+          )}
         </div>
         <Timer running={!done} secs={timerSecs} onTick={setTimerSecs} />
       </div>
@@ -345,18 +380,17 @@ export default function PuzzleGame({ puzzle, onBack, onComplete }) {
                   })}
                 </div>
               ))}
-              {done ? (
-                <div style={{ textAlign: "center", marginTop: 14 }}>
-                  <button onClick={() => setShowStartOverConfirm(true)} style={{ background: "none", border: `2px solid ${C.border}`, borderRadius: 12, padding: "10px 24px", fontSize: 13, color: C.muted, fontFamily: "'Fredoka One',cursive", fontWeight: 700, letterSpacing: 1, cursor: "pointer" }}>Start Over</button>
-                </div>
-              ) : (
+              {!done && (
                 <div style={{ textAlign: "center", marginTop: 10, fontSize: 10, color: C.muted, letterSpacing: 2, fontFamily: "'Nunito',sans-serif", fontWeight: 700 }}>TAP A CELL TO DRAW</div>
               )}
+              <div style={{ textAlign: "center", marginTop: done ? 14 : 8 }}>
+                <button onClick={() => setShowStartOverConfirm(true)} style={{ background: "none", border: `2px solid ${C.border}`, borderRadius: 12, padding: "10px 24px", fontSize: 13, color: C.muted, fontFamily: "'Fredoka One',cursive", fontWeight: 700, letterSpacing: 1, cursor: "pointer" }}>Start Over</button>
+              </div>
             </div>
           );
         })()}
       </div>
-      {puzzle.riddle && <RiddleBanner riddle={puzzle.riddle} />}
+      {puzzle.riddle && <RiddleBanner riddle={puzzle.riddle} revealed={hintRevealed} onReveal={() => setHintRevealed(true)} />}
       {selected && !done && (
         <TileSheet
           key={`${selected.r},${selected.c}`}

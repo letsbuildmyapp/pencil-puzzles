@@ -7,21 +7,28 @@ export default function DrawGrid({ userTile, refTile, showFeedback, onPaint, onI
   const paintMode = useRef(1);
   const lastKey = useRef(null);
 
-  const cellAt = (clientX, clientY) => {
+  const cellAt = (clientX, clientY, strict = false) => {
     const el = containerRef.current;
     if (!el) return null;
     const rect = el.getBoundingClientRect();
     const rx = clientX - rect.left;
     const ry = clientY - rect.top;
     if (rx < 0 || ry < 0 || rx >= rect.width || ry >= rect.height) return null;
-    return {
-      py: Math.min(4, Math.floor((ry / rect.height) * 5)),
-      px: Math.min(4, Math.floor((rx / rect.width) * 5)),
-    };
+    const fy = (ry / rect.height) * 5;
+    const fx = (rx / rect.width) * 5;
+    const py = Math.min(4, Math.floor(fy));
+    const px = Math.min(4, Math.floor(fx));
+    if (strict) {
+      const ly = fy - py;
+      const lx = fx - px;
+      const edge = 0.18;
+      if (lx < edge || lx > 1 - edge || ly < edge || ly > 1 - edge) return null;
+    }
+    return { py, px };
   };
 
-  const paint = (clientX, clientY) => {
-    const cell = cellAt(clientX, clientY);
+  const paint = (clientX, clientY, strict = false) => {
+    const cell = cellAt(clientX, clientY, strict);
     if (!cell) return;
     const key = `${cell.py},${cell.px}`;
     if (key === lastKey.current) return;
@@ -43,7 +50,7 @@ export default function DrawGrid({ userTile, refTile, showFeedback, onPaint, onI
   const onPointerMove = (e) => {
     if (!isDragging.current) return;
     e.preventDefault();
-    paint(e.clientX, e.clientY);
+    paint(e.clientX, e.clientY, true);
   };
 
   const onPointerUp = () => {
@@ -84,7 +91,7 @@ export default function DrawGrid({ userTile, refTile, showFeedback, onPaint, onI
         else if (isMissing) bg = "rgba(251,191,36,0.22)";
         else if (isCorrect) bg = C.correctLight;
         else if (v) bg = "rgba(255,255,255,0.3)";
-        else bg = "rgba(255,255,255,0.04)";
+        else bg = "rgba(255,255,255,0.1)";
         const glow = isDone
           ? `0 0 0 2px ${C.correct}`
           : isWrong ? `0 0 0 2px ${C.wrong}`
@@ -94,7 +101,7 @@ export default function DrawGrid({ userTile, refTile, showFeedback, onPaint, onI
         return (
           <div key={`${py}-${px}`} style={{
             background: bg, borderRadius: 8,
-            border: isDone ? `1.5px solid ${C.correct}` : isWrong ? `1.5px solid ${C.wrong}` : isMissing ? `1.5px dashed #FBBF24` : isCorrect ? `1.5px solid ${C.correct}` : v ? `1.5px solid rgba(255,255,255,0.35)` : `1.5px solid ${C.sheetBorder}`,
+            border: isDone ? `1.5px solid ${C.correct}` : isWrong ? `1.5px solid ${C.wrong}` : isMissing ? `1.5px dashed #FBBF24` : isCorrect ? `1.5px solid ${C.correct}` : v ? `1.5px solid rgba(255,255,255,0.6)` : `1.5px solid rgba(255,255,255,0.35)`,
             boxShadow: glow,
             transition: "background 0.1s, box-shadow 0.1s, transform 0.08s",
             transform: v ? "scale(1)" : "scale(0.92)",

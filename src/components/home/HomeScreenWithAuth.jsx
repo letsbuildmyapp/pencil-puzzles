@@ -1,11 +1,16 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { C } from "../../constants";
 import { supa } from "../../lib/supabase";
 import { PUZZLE_LIST } from "../../puzzles/index";
 import SolutionPreview from "../shared/SolutionPreview";
 import StoreModal from "../shared/StoreModal";
 import { isUnlocked, spendCreditToUnlock, getCredits, addCredits, isAlwaysFree, getDailyPuzzle } from "../../lib/credits";
+import { BADGES, getEarnedBadges, getNewlyEarned, markBadgesSeen, getBadge } from "../../lib/badges";
+import { getPvpStats, levelFromXp, xpIntoCurrentLevel, xpNeededForNextLevel, getLoginStreak } from "../../lib/pvpRewards";
+import CreditHistoryModal from "../shared/CreditHistoryModal";
+import { notificationsEnabled, enableNotifications, disableNotifications } from "../../lib/notifications";
 import VersusTab from "../versus/VersusTab";
+import { version as APP_VERSION } from "../../../package.json";
 
 function getPuzzleProgress(puzzle) {
   try {
@@ -155,8 +160,18 @@ function CategoryCard({ name, puzzles, gradient, onClick }) {
 }
 
 function CategoryDetailScreen({ group, onBack, onPlay }) {
+  const topRef = useRef(null);
+  useEffect(() => {
+    // Reset the parent scroll container to the top when entering a category
+    let el = topRef.current?.parentElement;
+    while (el) {
+      const s = window.getComputedStyle(el);
+      if (s.overflowY === "auto" || s.overflowY === "scroll") { el.scrollTop = 0; break; }
+      el = el.parentElement;
+    }
+  }, []);
   return (
-    <div style={{ padding: "0 20px 0", maxWidth: 480, margin: "0 auto", width: "100%" }}>
+    <div ref={topRef} style={{ padding: "0 20px 0", maxWidth: 480, margin: "0 auto", width: "100%" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20, paddingTop: 20 }}>
         <button onClick={onBack} style={{ background: C.surface, border: `2px solid ${C.border}`, borderRadius: 12, width: 38, height: 38, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={C.ink} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
@@ -173,11 +188,14 @@ function CategoryDetailScreen({ group, onBack, onPlay }) {
   );
 }
 
-function PuzzlesTab({ onPlay }) {
-  const [selectedCategory, setSelectedCategory] = useState(null);
+function PuzzlesTab({ onPlay, initialCategoryName }) {
+  const [selectedCategory, setSelectedCategory] = useState(() => {
+    if (!initialCategoryName) return null;
+    return categoryGroups.find(g => g.name === initialCategoryName) || null;
+  });
 
   if (selectedCategory) {
-    return <CategoryDetailScreen group={selectedCategory} onBack={() => setSelectedCategory(null)} onPlay={onPlay} />;
+    return <CategoryDetailScreen group={selectedCategory} onBack={() => setSelectedCategory(null)} onPlay={(puzzle) => onPlay(puzzle, selectedCategory.name)} />;
   }
 
   return (
@@ -190,11 +208,74 @@ function PuzzlesTab({ onPlay }) {
   );
 }
 
-function ProfileTab({ displayName, session, onSignOut, onOpenStore }) {
+// Compact PvP stats card shown in the profile tab below the puzzle streak
+// stats. Pulls from localStorage via pvpRewards helpers.
+function PvpStatsCard() {
+  const stats = getPvpStats();
+  const level = levelFromXp(stats.xp);
+  const intoLevel = xpIntoCurrentLevel(stats.xp);
+  const levelMax = xpNeededForNextLevel();
+  const levelPct = Math.min(100, Math.round((intoLevel / levelMax) * 100));
+  const winRate = stats.matches > 0 ? Math.round((stats.wins / stats.matches) * 100) : 0;
+  const loginStreak = getLoginStreak();
+
+  return (
+    <div style={{ marginBottom: 24 }}>
+      <div style={{ fontSize: 9, color: C.muted, letterSpacing: 4, textTransform: "uppercase", marginBottom: 10 }}>⚔️ PvP Stats</div>
+      <div style={{ background: C.paper, border: `2px solid ${C.border}`, borderRadius: 16, padding: "14px 16px", boxShadow: "0 1px 4px rgba(26,18,9,0.07)" }}>
+        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 6 }}>
+          <div style={{ fontFamily: "'Fredoka One',cursive", fontSize: 22, color: C.ink, letterSpacing: 0.3 }}>
+            Level {level}
+          </div>
+          <div style={{ fontSize: 11, color: C.muted, fontWeight: 700 }}>
+            {intoLevel} / {levelMax} XP
+          </div>
+        </div>
+        <div style={{ height: 8, background: "rgba(0,0,0,0.06)", borderRadius: 99, overflow: "hidden", marginBottom: 14 }}>
+          <div style={{
+            height: "100%",
+            width: `${levelPct}%`,
+            background: "linear-gradient(90deg, #6366F1, #8B5CF6)",
+            borderRadius: 99,
+            transition: "width 0.3s ease",
+          }} />
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          {[
+            { label: "Wins", value: stats.wins },
+            { label: "Matches", value: stats.matches },
+            { label: "Win Rate", value: `${winRate}%` },
+            { label: "Streak", value: `${loginStreak}d` },
+          ].map(({ label, value }) => (
+            <div key={label} style={{ flex: 1, textAlign: "center" }}>
+              <div style={{ fontFamily: "'Fredoka One',cursive", fontSize: 16, color: C.ink }}>{value}</div>
+              <div style={{ fontSize: 9, color: C.muted, letterSpacing: 1, textTransform: "uppercase", fontWeight: 700, marginTop: 1 }}>{label}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProfileTab({ displayName, session, onAdmin, onSignOut, onOpenStore }) {
   const [progress, setProgress] = useState([]);
   const [streak, setStreak] = useState({ current_streak: 0, longest_streak: 0 });
   const [loading, setLoading] = useState(true);
+  const [notifsOn, setNotifsOn] = useState(notificationsEnabled());
+  const [historyOpen, setHistoryOpen] = useState(false);
   const initials = displayName ? displayName.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2) : "??";
+
+  const toggleNotifs = async () => {
+    if (notifsOn) {
+      await disableNotifications();
+      setNotifsOn(false);
+    } else {
+      const ok = await enableNotifications();
+      if (ok) setNotifsOn(true);
+      else alert("Notifications are disabled in your iOS settings. Please enable them in Settings → Pencil Puzzles → Notifications.");
+    }
+  };
 
   useEffect(() => {
     (async () => {
@@ -209,6 +290,17 @@ function ProfileTab({ displayName, session, onSignOut, onOpenStore }) {
 
   const completed = progress.filter(p => p.completed);
   const bestScore = completed.length ? Math.max(...completed.map(p => p.score || 0)) : 0;
+  const totalPoints = completed.reduce((sum, p) => sum + (p.score || 0), 0);
+  let hasNoHintWin = false;
+  try { hasNoHintWin = (JSON.parse(localStorage.getItem("pp_no_hint_wins") || "[]")).length > 0; } catch (e) {}
+  const earned = getEarnedBadges({
+    completedCount: completed.length,
+    topScore: bestScore,
+    totalPoints,
+    currentStreak: streak.current_streak || 0,
+    longestStreak: streak.longest_streak || 0,
+    hasNoHintWin,
+  });
 
   return (
     <div style={{ padding: "20px 20px 0", maxWidth: 480, margin: "0 auto", width: "100%" }}>
@@ -217,18 +309,38 @@ function ProfileTab({ displayName, session, onSignOut, onOpenStore }) {
         <div style={{ fontFamily: "'Fredoka One',cursive", fontSize: 22, color: C.ink, letterSpacing: 0.5 }}>{displayName}</div>
         <div style={{ fontSize: 10, color: C.muted, marginTop: 3, letterSpacing: 1 }}>{session?.email}</div>
       </div>
-      <div style={{ display: "flex", gap: 8, marginBottom: 24 }}>
+      {/* Total Points hero */}
+      <div style={{ background: "linear-gradient(135deg, #C026D3, #818CF8)", borderRadius: 20, padding: "18px 20px", marginBottom: 16, textAlign: "center", boxShadow: "0 8px 24px rgba(168,85,247,0.3)" }}>
+        <div style={{ fontSize: 10, color: "rgba(255,255,255,0.8)", letterSpacing: 3, textTransform: "uppercase", fontWeight: 800, marginBottom: 4 }}>Total Points</div>
+        <div style={{ fontFamily: "'Fredoka One',cursive", fontSize: 38, color: "#fff", letterSpacing: 0.5 }}>{totalPoints.toLocaleString()}</div>
+      </div>
+      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
         {[
           { label: "Streak", value: `${streak.current_streak}d` },
           { label: "Best", value: `${streak.longest_streak}d` },
           { label: "Completed", value: completed.length },
-          { label: "Top Score", value: bestScore > 0 ? `${Math.round(bestScore / 100) * 100}` : "-" },
         ].map(({ label, value }) => (
           <div key={label} style={{ flex: 1, background: C.paper, border: `1px solid ${C.line}`, borderRadius: 8, padding: "10px 6px", textAlign: "center", boxShadow: "0 1px 4px rgba(26,18,9,0.07)" }}>
             <div style={{ fontFamily: "'Fredoka One',cursive", fontSize: 18, fontWeight: 700, color: C.ink }}>{value}</div>
             <div style={{ fontSize: 9, color: C.muted, letterSpacing: 2, textTransform: "uppercase", marginTop: 2 }}>{label}</div>
           </div>
         ))}
+      </div>
+
+      <PvpStatsCard />
+
+      {/* Badges */}
+      <div style={{ fontSize: 9, color: C.muted, letterSpacing: 4, textTransform: "uppercase", marginBottom: 10 }}>Badges ({earned.size}/{BADGES.length})</div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 24 }}>
+        {BADGES.map(b => {
+          const got = earned.has(b.id);
+          return (
+            <div key={b.id} title={`${b.title} — ${b.description}`} style={{ background: got ? C.paper : "rgba(0,0,0,0.04)", border: `2px solid ${got ? C.gold : C.border}`, borderRadius: 14, padding: "10px 6px", textAlign: "center", opacity: got ? 1 : 0.4, boxShadow: got ? "0 2px 10px rgba(251,191,36,0.2)" : "none", transition: "all 0.2s" }}>
+              <div style={{ fontSize: 28, lineHeight: 1, marginBottom: 4, filter: got ? "none" : "grayscale(1)" }}>{b.emoji}</div>
+              <div style={{ fontSize: 9, color: got ? C.ink : C.muted, fontFamily: "'Fredoka One',cursive", letterSpacing: 0.2, lineHeight: 1.2 }}>{b.title}</div>
+            </div>
+          );
+        })}
       </div>
       <div style={{ fontSize: 9, color: C.muted, letterSpacing: 4, textTransform: "uppercase", marginBottom: 10 }}>Puzzle Progress</div>
       {loading ? (
@@ -266,10 +378,19 @@ function ProfileTab({ displayName, session, onSignOut, onOpenStore }) {
           );
         });
       })()}
+      <div onClick={toggleNotifs} style={{ background: C.paper, border: `2px solid ${C.border}`, borderRadius: 16, padding: "14px 18px", marginTop: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div>
+          <div style={{ fontFamily: "'Fredoka One',cursive", fontSize: 16, color: C.ink }}>🔔 Daily Reminder</div>
+          <div style={{ fontSize: 11, color: C.muted, fontWeight: 600, marginTop: 2 }}>Get reminded to play each day at 7am</div>
+        </div>
+        <div style={{ width: 44, height: 26, borderRadius: 99, background: notifsOn ? C.correct : C.border, position: "relative", flexShrink: 0, transition: "background 0.2s" }}>
+          <div style={{ position: "absolute", top: 3, left: notifsOn ? 21 : 3, width: 20, height: 20, borderRadius: "50%", background: "#fff", boxShadow: "0 2px 4px rgba(0,0,0,0.2)", transition: "left 0.2s" }} />
+        </div>
+      </div>
       {(() => {
         const credits = getCredits();
         return (
-          <div onClick={onOpenStore} style={{ background: "linear-gradient(135deg,#EDE9F6,#F5F3FF)", border: "2px solid #C4B5FD", borderRadius: 16, padding: "14px 18px", marginTop: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div onClick={onOpenStore} style={{ background: "linear-gradient(135deg,#EDE9F6,#F5F3FF)", border: "2px solid #C4B5FD", borderRadius: 16, padding: "14px 18px", marginTop: 12, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div>
               <div style={{ fontFamily: "'Fredoka One',cursive", fontSize: 16, color: "#6D28D9" }}>
                 {credits === Infinity ? "✨ Unlimited Credits" : `🔓 ${credits} Credit${credits !== 1 ? "s" : ""} Remaining`}
@@ -280,14 +401,40 @@ function ProfileTab({ displayName, session, onSignOut, onOpenStore }) {
           </div>
         );
       })()}
+      <div onClick={() => setHistoryOpen(true)} style={{ background: C.paper, border: `2px solid ${C.border}`, borderRadius: 16, padding: "14px 18px", marginTop: 12, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div>
+          <div style={{ fontFamily: "'Fredoka One',cursive", fontSize: 16, color: C.ink }}>📜 Credit History</div>
+          <div style={{ fontSize: 11, color: C.muted, fontWeight: 600, marginTop: 2 }}>See all credits earned, purchased, and spent</div>
+        </div>
+        <div style={{ color: C.muted, fontSize: 18 }}>›</div>
+      </div>
       {import.meta.env.DEV && (
         <button onClick={() => { addCredits(10); alert("10 credits added!"); }} style={{ width: "100%", marginTop: 12, padding: "10px", background: "#FEF3C7", border: "2px dashed #F59E0B", borderRadius: 16, color: "#92400E", fontFamily: "'Nunito',sans-serif", fontSize: 13, fontWeight: 800, cursor: "pointer" }}>
           🛠 DEV: Add 10 Credits
         </button>
       )}
+      {session?.isAdmin && onAdmin && (
+        <button onClick={onAdmin} style={{ width: "100%", marginTop: 12, padding: "14px", background: "linear-gradient(135deg, #C026D3, #818CF8)", border: "none", borderRadius: 16, color: "#fff", fontFamily: "'Nunito',sans-serif", fontSize: 14, fontWeight: 800, letterSpacing: 1, cursor: "pointer", textTransform: "uppercase" }}>
+          Admin Panel
+        </button>
+      )}
+      <div onClick={() => {
+        const url = "https://apps.apple.com/app/id6744213645?action=write-review";
+        window.open(url, "_blank");
+      }} style={{ background: "linear-gradient(135deg, #FBBF24, #F59E0B)", border: "none", borderRadius: 16, padding: "14px 18px", marginTop: 12, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: "0 4px 16px rgba(251,191,36,0.3)" }}>
+        <div>
+          <div style={{ fontFamily: "'Fredoka One',cursive", fontSize: 16, color: "#fff" }}>⭐ Enjoying Pencil Puzzles?</div>
+          <div style={{ fontSize: 11, color: "rgba(255,255,255,0.9)", fontWeight: 600, marginTop: 2 }}>Tap to rate us on the App Store!</div>
+        </div>
+        <div style={{ fontSize: 24 }}>⭐</div>
+      </div>
       <button onClick={onSignOut} style={{ width: "100%", marginTop: 12, padding: "14px", background: "none", border: `2px solid ${C.border}`, borderRadius: 16, color: C.muted, fontFamily: "'Nunito',sans-serif", fontSize: 14, fontWeight: 800, letterSpacing: 1, cursor: "pointer", textTransform: "uppercase" }}>
         Sign Out
       </button>
+      <div style={{ textAlign: "center", marginTop: 10, fontSize: 11, color: C.muted, fontFamily: "'Nunito',sans-serif", letterSpacing: 1 }}>
+        Version {APP_VERSION}
+      </div>
+      <CreditHistoryModal open={historyOpen} onClose={() => setHistoryOpen(false)} />
     </div>
   );
 }
@@ -331,15 +478,53 @@ function ConfirmUnlockModal({ puzzle, onConfirm, onCancel, onShop }) {
   );
 }
 
-export default function HomeScreenWithAuth({ displayName, session, onPlay, onStartVersus, onSignOut, showWelcome, onDismissWelcome }) {
-  const [tab, setTab] = useState("home");
+export default function HomeScreenWithAuth({ displayName, session, onPlay, onStartVersus, onAdmin, onSignOut, showWelcome, onDismissWelcome, initialTab = "home", initialCategoryName = null }) {
+  const [tab, setTab] = useState(initialTab);
   const [storeOpen, setStoreOpen] = useState(false);
   const [pendingPuzzle, setPendingPuzzle] = useState(null);
   const [confirmPuzzle, setConfirmPuzzle] = useState(null);
+  const [newBadges, setNewBadges] = useState([]);
 
-  function handlePlay(puzzle) {
+  useEffect(() => {
+    if (!session) return;
+    (async () => {
+      try {
+        const [prog, str] = await Promise.all([
+          supa.getProgress(session.userId, session.token),
+          supa.getStreak(session.userId, session.token),
+        ]);
+        const completed = (Array.isArray(prog) ? prog : []).filter(p => p.completed);
+        const totalPoints = completed.reduce((sum, p) => sum + (p.score || 0), 0);
+        const bestScore = completed.length ? Math.max(...completed.map(p => p.score || 0)) : 0;
+        let hasNoHintWin = false;
+        try { hasNoHintWin = (JSON.parse(localStorage.getItem("pp_no_hint_wins") || "[]")).length > 0; } catch (e) {}
+        const earned = getEarnedBadges({
+          completedCount: completed.length,
+          topScore: bestScore,
+          totalPoints,
+          currentStreak: str?.current_streak || 0,
+          longestStreak: str?.longest_streak || 0,
+          hasNoHintWin,
+        });
+        const newly = getNewlyEarned(earned);
+        if (newly.length > 0) setNewBadges(newly);
+      } catch (e) {}
+    })();
+  }, [session, tab]);
+
+  const dismissBadge = () => {
+    if (newBadges.length === 0) return;
+    markBadgesSeen([newBadges[0]]);
+    setNewBadges(prev => prev.slice(1));
+  };
+
+  // Category gets threaded through so App can return the user to the same
+  // category when the puzzle's Back button is tapped.
+  const categoryRef = useRef(null);
+  function handlePlay(puzzle, categoryName = null) {
+    categoryRef.current = categoryName;
     if (isAlwaysFree(puzzle.id) || isUnlocked(puzzle.id)) {
-      onPlay(puzzle);
+      onPlay(puzzle, categoryName);
       return;
     }
     const credits = getCredits();
@@ -357,7 +542,7 @@ export default function HomeScreenWithAuth({ displayName, session, onPlay, onSta
     if (success) {
       const p = confirmPuzzle;
       setConfirmPuzzle(null);
-      onPlay(p);
+      onPlay(p, categoryRef.current);
     } else {
       setConfirmPuzzle(null);
       setPendingPuzzle(confirmPuzzle);
@@ -369,7 +554,7 @@ export default function HomeScreenWithAuth({ displayName, session, onPlay, onSta
     if (pendingPuzzle) {
       const success = spendCreditToUnlock(pendingPuzzle.id);
       if (success) {
-        onPlay(pendingPuzzle);
+        onPlay(pendingPuzzle, categoryRef.current);
       }
     }
     setPendingPuzzle(null);
@@ -393,6 +578,23 @@ export default function HomeScreenWithAuth({ displayName, session, onPlay, onSta
           onPurchased={handlePurchased}
         />
       )}
+      {newBadges.length > 0 && (() => {
+        const badge = getBadge(newBadges[0]);
+        if (!badge) return null;
+        return (
+          <div style={{ position: "fixed", inset: 0, zIndex: 600, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.7)", backdropFilter: "blur(6px)", animation: "fadeIn 0.3s ease" }}>
+            <div style={{ background: C.paper, borderRadius: 24, padding: "40px 32px", maxWidth: 340, width: "88%", textAlign: "center", boxShadow: "0 24px 80px rgba(251,191,36,0.3), 0 0 0 2px rgba(251,191,36,0.4)", animation: "celebrationPop 0.5s cubic-bezier(0.16,1,0.3,1)" }}>
+              <div style={{ fontSize: 14, color: C.gold, letterSpacing: 4, textTransform: "uppercase", fontWeight: 900, marginBottom: 12 }}>🎉 Badge Unlocked!</div>
+              <div style={{ fontSize: 80, marginBottom: 12, lineHeight: 1, animation: "celebrationPop 0.7s cubic-bezier(0.16,1,0.3,1)" }}>{badge.emoji}</div>
+              <div style={{ fontFamily: "'Fredoka One',cursive", fontSize: 28, color: C.ink, marginBottom: 8, letterSpacing: 0.3 }}>{badge.title}</div>
+              <div style={{ fontSize: 15, color: C.inkMid, fontWeight: 600, lineHeight: 1.5, marginBottom: 28 }}>{badge.description}</div>
+              <button onClick={dismissBadge} style={{ width: "100%", padding: "16px 0", background: "linear-gradient(135deg, #FBBF24, #F59E0B)", color: "#fff", border: "none", borderRadius: 14, fontFamily: "'Fredoka One',cursive", fontSize: 17, letterSpacing: 0.5, cursor: "pointer", boxShadow: "0 6px 24px rgba(251,191,36,0.5)" }}>
+                {newBadges.length > 1 ? `Awesome! (${newBadges.length - 1} more)` : "Awesome!"}
+              </button>
+            </div>
+          </div>
+        );
+      })()}
       {showWelcome && (
         <div style={{ position: "fixed", inset: 0, zIndex: 500, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}>
           <div style={{ background: C.paper, borderRadius: 24, padding: "36px 28px", maxWidth: 340, width: "88%", textAlign: "center", boxShadow: "0 24px 80px rgba(0,0,0,0.4)" }}>
@@ -410,9 +612,9 @@ export default function HomeScreenWithAuth({ displayName, session, onPlay, onSta
       )}
       <div style={{ flex: 1, overflowY: "auto", paddingTop: 16, paddingBottom: 96 }}>
         {tab === "home" && <HomeTab onPlay={handlePlay} />}
-        {tab === "puzzles" && <PuzzlesTab onPlay={handlePlay} />}
+        {tab === "puzzles" && <PuzzlesTab onPlay={handlePlay} initialCategoryName={initialCategoryName} />}
         {tab === "versus" && <VersusTab onStartVersus={onStartVersus} />}
-        {tab === "profile" && <ProfileTab displayName={displayName} session={session} onSignOut={onSignOut} onOpenStore={() => setStoreOpen(true)} />}
+        {tab === "profile" && <ProfileTab displayName={displayName} session={session} onAdmin={onAdmin} onSignOut={onSignOut} onOpenStore={() => setStoreOpen(true)} />}
       </div>
       {/* Nav bar */}
       <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: C.paper, borderTop: `1px solid ${C.line}`, display: "flex", alignItems: "stretch", height: "calc(80px + env(safe-area-inset-bottom))", paddingBottom: "env(safe-area-inset-bottom)", boxShadow: "0 -4px 20px rgba(0,0,0,0.06)", zIndex: 100 }}>
