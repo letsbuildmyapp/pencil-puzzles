@@ -1,6 +1,7 @@
 import { Capacitor } from "@capacitor/core";
 import { Purchases } from "@revenuecat/purchases-capacitor";
 import { addCredits } from "./credits";
+import { recordCreditTx, SOURCES, TYPES } from "./creditHistory";
 
 const RC_API_KEY = "appl_UYsLCpOqJGnFjeejppOmbustVTW";
 
@@ -66,12 +67,25 @@ export async function purchasePackage(pkg) {
   if (!SDK) throw new Error("Purchases not available on this platform");
   const { customerInfo } = await SDK.purchasePackage({ aPackage: pkg });
   const productId = pkg.product.identifier;
+  const priceStr = pkg.product?.priceString || "";
+  let amount = 0;
   if (productId.includes("big_box")) {
     addCredits(Infinity);
+    amount = Infinity;
   } else if (productId.includes("box_c") || productId === "com.letsbuildmyapp.pencilpuzzles.box") {
     addCredits(10);
+    amount = 10;
   } else if (productId.includes("lil_bag")) {
     addCredits(1);
+    amount = 1;
+  }
+  if (amount > 0) {
+    recordCreditTx({
+      type: TYPES.PURCHASE,
+      source: SOURCES.STORE_PURCHASE,
+      amount,
+      meta: { productId, price: priceStr },
+    });
   }
   return customerInfo;
 }

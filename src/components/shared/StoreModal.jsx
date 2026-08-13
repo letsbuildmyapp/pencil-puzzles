@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { C } from "../../constants";
 import { getOfferings, purchasePackage, restorePurchases } from "../../lib/purchases";
-import { getCredits } from "../../lib/credits";
+import { getCredits, redeemCoupon } from "../../lib/credits";
 
 const PACKAGE_META = {
   lil_bag:  { emoji: "🎁", title: "Lil' Bag O' Mystery", credits: "1 credit",  desc: "Unlock 1 puzzle of your choice" },
@@ -25,7 +25,10 @@ export default function StoreModal({ onClose, onPurchased }) {
   const [purchasing, setPurchasing] = useState(null);
   const [restoring, setRestoring] = useState(false);
   const [error, setError] = useState(null);
-  const credits = getCredits();
+  const [couponOpen, setCouponOpen] = useState(false);
+  const [couponCode, setCouponCode] = useState("");
+  const [couponMsg, setCouponMsg] = useState(null);
+  const [credits, setCredits] = useState(() => getCredits());
 
   function loadOfferings() {
     setLoading(true);
@@ -59,6 +62,17 @@ export default function StoreModal({ onClose, onPurchased }) {
       }
     } finally {
       setPurchasing(null);
+    }
+  }
+
+  function handleRedeem() {
+    const result = redeemCoupon(couponCode);
+    if (result.ok) {
+      setCouponMsg({ ok: true, text: result.amount === Infinity ? "🎉 Unlimited credits unlocked!" : `🎉 ${result.amount} credit${result.amount !== 1 ? "s" : ""} added!` });
+      setCouponCode("");
+      setCredits(getCredits());
+    } else {
+      setCouponMsg({ ok: false, text: result.reason });
     }
   }
 
@@ -136,6 +150,36 @@ export default function StoreModal({ onClose, onPurchased }) {
 
         {error && (
           <div style={{ textAlign: "center", color: "#EF4444", fontSize: 13, fontWeight: 600, marginBottom: 8 }}>{error}</div>
+        )}
+
+        {couponOpen ? (
+          <div style={{ marginTop: 16, padding: "14px 14px 12px", background: C.surface, border: `2px solid ${C.border}`, borderRadius: 14 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: C.muted, marginBottom: 8, letterSpacing: 0.5 }}>COUPON CODE</div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input
+                value={couponCode}
+                onChange={e => { setCouponCode(e.target.value); setCouponMsg(null); }}
+                onKeyDown={e => { if (e.key === "Enter") handleRedeem(); }}
+                placeholder="Enter code"
+                autoCapitalize="characters"
+                autoCorrect="off"
+                spellCheck={false}
+                style={{ flex: 1, minWidth: 0, background: C.paper, border: `2px solid ${C.border}`, borderRadius: 10, padding: "10px 12px", fontSize: 15, fontWeight: 700, color: C.ink, textTransform: "uppercase", fontFamily: "'Nunito',sans-serif", outline: "none" }}
+              />
+              <button onClick={handleRedeem} style={{ background: C.accent, color: "#fff", border: "none", borderRadius: 10, padding: "0 18px", fontFamily: "'Fredoka One',cursive", fontSize: 14, cursor: "pointer" }}>
+                Redeem
+              </button>
+            </div>
+            {couponMsg && (
+              <div style={{ fontSize: 12, fontWeight: 700, marginTop: 8, color: couponMsg.ok ? "#10B981" : "#EF4444" }}>
+                {couponMsg.text}
+              </div>
+            )}
+          </div>
+        ) : (
+          <button onClick={() => setCouponOpen(true)} style={{ width: "100%", background: "none", border: "none", color: C.muted, fontSize: 13, fontWeight: 700, padding: "14px 0 0", cursor: "pointer", fontFamily: "'Nunito',sans-serif" }}>
+            Have a coupon code?
+          </button>
         )}
 
         <button onClick={handleRestore} disabled={restoring} style={{ width: "100%", background: "none", border: "none", color: C.muted, fontSize: 13, fontWeight: 700, padding: "12px 0 0", cursor: "pointer", fontFamily: "'Nunito',sans-serif" }}>
