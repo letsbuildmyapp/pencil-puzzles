@@ -5,7 +5,7 @@
   "plugins": {
     "StatusBar": {
       "overlaysWebView": false,
-      "style": "DARK",
+      "style": "LIGHT",
       "backgroundColor": "#FFF9F0"
     },
     "SplashScreen": {
