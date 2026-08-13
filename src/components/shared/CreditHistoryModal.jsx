@@ -13,6 +13,7 @@ const SOURCE_META = {
   store_purchase:  { icon: "💳", label: "Store purchase" },
   restore:         { icon: "🔄", label: "Purchase restored" },
   puzzle_unlock:   { icon: "🔓", label: "Puzzle unlocked" },
+  rewarded_ad:     { icon: "🎬", label: "Watched an ad" },
 };
 
 function formatRelativeTime(ts) {

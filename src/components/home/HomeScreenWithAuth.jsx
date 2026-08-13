@@ -4,7 +4,8 @@ import { supa } from "../../lib/supabase";
 import { PUZZLE_LIST } from "../../puzzles/index";
 import SolutionPreview from "../shared/SolutionPreview";
 import StoreModal from "../shared/StoreModal";
-import { isUnlocked, spendCreditToUnlock, getCredits, addCredits, isAlwaysFree, getDailyPuzzle } from "../../lib/credits";
+import { isUnlocked, spendCreditToUnlock, getCredits, addCredits, isAlwaysFree, getDailyPuzzle, watchAdToUnlock } from "../../lib/credits";
+import { adsAvailable, canUnlockWithAd } from "../../lib/ads";
 import { BADGES, getEarnedBadges, getNewlyEarned, markBadgesSeen, getBadge } from "../../lib/badges";
 import { getPvpStats, levelFromXp, xpIntoCurrentLevel, xpNeededForNextLevel, getLoginStreak } from "../../lib/pvpRewards";
 import CreditHistoryModal from "../shared/CreditHistoryModal";
@@ -451,16 +452,39 @@ function CreditPill({ onShopTap }) {
   );
 }
 
-function ConfirmUnlockModal({ puzzle, onConfirm, onCancel, onShop }) {
+function ConfirmUnlockModal({ puzzle, onConfirm, onCancel, onShop, onWatchAd }) {
   const credits = getCredits();
+  const [watching, setWatching] = useState(false);
+  const [adError, setAdError] = useState(null);
+  // The ad route is offered when the platform can serve one and this puzzle
+  // hasn't already been opened that way.
+  const canWatch = adsAvailable() && canUnlockWithAd(puzzle.id);
+  const hasCredits = credits > 0;
+
+  async function handleWatch() {
+    setWatching(true);
+    setAdError(null);
+    const res = await onWatchAd(puzzle);
+    // On success the parent unmounts this modal, so only the failure path
+    // needs to restore local state.
+    if (!res.ok) {
+      setWatching(false);
+      setAdError(res.reason);
+    }
+  }
+
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 400, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
-      <div onClick={onCancel} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.5)", backdropFilter: "blur(2px)" }} />
+      <div onClick={watching ? undefined : onCancel} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.5)", backdropFilter: "blur(2px)" }} />
       <div style={{ position: "relative", background: C.paper, borderRadius: "24px 24px 0 0", padding: "28px 24px calc(28px + env(safe-area-inset-bottom))", boxShadow: "0 -8px 40px rgba(0,0,0,0.2)" }}>
         <div style={{ textAlign: "center", marginBottom: 20 }}>
           <div style={{ fontFamily: "'Fredoka One',cursive", fontSize: 22, color: C.ink, marginBottom: 4 }}>Unlock Puzzle</div>
           <div style={{ fontSize: 15, color: C.muted, fontWeight: 600 }}>
-            Spend <span style={{ color: "#6D28D9", fontWeight: 900 }}>1 credit</span> to unlock <span style={{ color: C.ink, fontWeight: 900 }}>{puzzle.title}</span>?
+            {hasCredits ? (
+              <>Spend <span style={{ color: "#6D28D9", fontWeight: 900 }}>1 credit</span> to unlock <span style={{ color: C.ink, fontWeight: 900 }}>{puzzle.title}</span>?</>
+            ) : (
+              <>Watch a short ad to unlock <span style={{ color: C.ink, fontWeight: 900 }}>{puzzle.title}</span>?</>
+            )}
           </div>
           <div style={{ marginTop: 10, background: "#F5F3FF", borderRadius: 12, padding: "8px 16px", display: "inline-block" }}>
             <span style={{ fontSize: 13, color: "#6D28D9", fontWeight: 700 }}>
@@ -468,11 +492,27 @@ function ConfirmUnlockModal({ puzzle, onConfirm, onCancel, onShop }) {
             </span>
           </div>
         </div>
+        {adError && (
+          <div style={{ textAlign: "center", fontSize: 13, color: "#F43F5E", fontWeight: 700, marginBottom: 12 }}>{adError}</div>
+        )}
         <div style={{ display: "flex", gap: 10 }}>
-          <button onClick={onCancel} style={{ flex: 1, padding: "14px 0", background: "none", border: `2px solid ${C.border}`, borderRadius: 14, fontFamily: "'Nunito',sans-serif", fontSize: 15, fontWeight: 800, color: C.muted, cursor: "pointer" }}>Cancel</button>
-          <button onClick={onConfirm} style={{ flex: 2, padding: "14px 0", background: "linear-gradient(135deg,#6D28D9,#818CF8)", border: "none", borderRadius: 14, fontFamily: "'Fredoka One',cursive", fontSize: 17, color: "#fff", cursor: "pointer", boxShadow: "0 4px 16px rgba(109,40,217,0.4)" }}>Unlock — 1 Credit</button>
+          <button disabled={watching} onClick={onCancel} style={{ flex: 1, padding: "14px 0", background: "none", border: `2px solid ${C.border}`, borderRadius: 14, fontFamily: "'Nunito',sans-serif", fontSize: 15, fontWeight: 800, color: C.muted, cursor: watching ? "default" : "pointer", opacity: watching ? 0.5 : 1 }}>Cancel</button>
+          {hasCredits ? (
+            <button disabled={watching} onClick={onConfirm} style={{ flex: 2, padding: "14px 0", background: "linear-gradient(135deg,#6D28D9,#818CF8)", border: "none", borderRadius: 14, fontFamily: "'Fredoka One',cursive", fontSize: 17, color: "#fff", cursor: watching ? "default" : "pointer", boxShadow: "0 4px 16px rgba(109,40,217,0.4)", opacity: watching ? 0.6 : 1 }}>Unlock — 1 Credit</button>
+          ) : (
+            <button disabled={watching} onClick={handleWatch} style={{ flex: 2, padding: "14px 0", background: "linear-gradient(135deg,#F59E0B,#FBBF24)", border: "none", borderRadius: 14, fontFamily: "'Fredoka One',cursive", fontSize: 17, color: "#fff", cursor: watching ? "default" : "pointer", boxShadow: "0 4px 16px rgba(245,158,11,0.4)", opacity: watching ? 0.6 : 1 }}>
+              {watching ? "Loading ad…" : "▶ Watch Ad to Unlock"}
+            </button>
+          )}
         </div>
-        <button onClick={onShop} style={{ width: "100%", marginTop: 10, padding: "10px 0", background: "none", border: "none", color: C.muted, fontFamily: "'Nunito',sans-serif", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>Get more credits →</button>
+        {/* When the player has credits, the ad is the cheaper secondary route
+            rather than the headline action. */}
+        {hasCredits && canWatch && (
+          <button disabled={watching} onClick={handleWatch} style={{ width: "100%", marginTop: 10, padding: "12px 0", background: "none", border: `2px solid #FCD34D`, borderRadius: 14, color: "#B45309", fontFamily: "'Nunito',sans-serif", fontSize: 14, fontWeight: 800, cursor: watching ? "default" : "pointer", opacity: watching ? 0.6 : 1 }}>
+            {watching ? "Loading ad…" : "▶ Or watch an ad to unlock free"}
+          </button>
+        )}
+        <button disabled={watching} onClick={onShop} style={{ width: "100%", marginTop: 10, padding: "10px 0", background: "none", border: "none", color: C.muted, fontFamily: "'Nunito',sans-serif", fontSize: 13, fontWeight: 700, cursor: watching ? "default" : "pointer" }}>Get more credits →</button>
       </div>
     </div>
   );
@@ -528,12 +568,24 @@ export default function HomeScreenWithAuth({ displayName, session, onPlay, onSta
       return;
     }
     const credits = getCredits();
-    if (credits > 0) {
+    // Show the unlock sheet whenever there's something to offer — a credit to
+    // spend, or an ad to watch. Only send them to the store when neither is
+    // available, which is what used to happen at zero credits.
+    if (credits > 0 || (adsAvailable() && canUnlockWithAd(puzzle.id))) {
       setConfirmPuzzle(puzzle);
     } else {
       setPendingPuzzle(puzzle);
       setStoreOpen(true);
     }
+  }
+
+  async function handleWatchAdToUnlock(puzzle) {
+    const res = await watchAdToUnlock(puzzle.id);
+    if (res.ok) {
+      setConfirmPuzzle(null);
+      onPlay(puzzle, categoryRef.current);
+    }
+    return res;
   }
 
   function handleConfirmUnlock() {
@@ -570,6 +622,7 @@ export default function HomeScreenWithAuth({ displayName, session, onPlay, onSta
           onConfirm={handleConfirmUnlock}
           onCancel={() => setConfirmPuzzle(null)}
           onShop={() => { setConfirmPuzzle(null); setPendingPuzzle(confirmPuzzle); setStoreOpen(true); }}
+          onWatchAd={handleWatchAdToUnlock}
         />
       )}
       {storeOpen && (

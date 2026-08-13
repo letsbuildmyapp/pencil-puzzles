@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { C } from "../../constants";
 import { getOfferings, purchasePackage, restorePurchases } from "../../lib/purchases";
-import { getCredits, redeemCoupon } from "../../lib/credits";
+import { getCredits, redeemCoupon, watchAdForCredit } from "../../lib/credits";
+import { adsAvailable, isAdFree, rewardsLeftToday, DAILY_REWARD_CAP } from "../../lib/ads";
 
 const PACKAGE_META = {
   lil_bag:  { emoji: "🎁", title: "Lil' Bag O' Mystery", credits: "1 credit",  desc: "Unlock 1 puzzle of your choice" },
@@ -12,6 +13,9 @@ const PACKAGE_META = {
 const ORDER = ["lil_bag", "box", "big_box"];
 
 function identifierKey(id) {
+  // remove_ads is checked first — it isn't a credit pack, and matching it
+  // against the "box" substring rules below would misfile it.
+  if (id.includes("remove_ads")) return "remove_ads";
   if (id.includes("big_box")) return "big_box";
   if (id.includes("lil_bag")) return "lil_bag";
   if (id.includes("box")) return "box";
@@ -29,6 +33,9 @@ export default function StoreModal({ onClose, onPurchased }) {
   const [couponCode, setCouponCode] = useState("");
   const [couponMsg, setCouponMsg] = useState(null);
   const [credits, setCredits] = useState(() => getCredits());
+  const [watching, setWatching] = useState(false);
+  const [adsLeft, setAdsLeft] = useState(() => rewardsLeftToday());
+  const [adFree, setAdFree] = useState(() => isAdFree());
 
   function loadOfferings() {
     setLoading(true);
@@ -48,6 +55,26 @@ export default function StoreModal({ onClose, onPurchased }) {
   const packages = offering
     ? ORDER.map(key => offering.availablePackages?.find(p => identifierKey(p.product.identifier) === key)).filter(Boolean)
     : [];
+
+  // Rendered on its own below the credit packs — it sells a different thing.
+  const removeAdsPkg = offering?.availablePackages?.find(
+    p => identifierKey(p.product.identifier) === "remove_ads"
+  );
+
+  async function handleWatchForCredit() {
+    setWatching(true);
+    setError(null);
+    const res = await watchAdForCredit();
+    if (res.ok) {
+      // Deliberately not calling onPurchased — that closes the sheet, and a
+      // player earning credits an ad at a time usually wants to watch another.
+      setCredits(getCredits());
+    } else {
+      setError(res.reason);
+    }
+    setAdsLeft(rewardsLeftToday());
+    setWatching(false);
+  }
 
   async function handlePurchase(pkg) {
     setPurchasing(pkg.identifier);
@@ -111,6 +138,29 @@ export default function StoreModal({ onClose, onPurchased }) {
           </div>
         </div>
 
+        {/* Free credit for a watched ad. Sits above the paid packs so the
+            free option is never hidden behind a purchase. */}
+        {adsAvailable() && credits !== Infinity && (
+          <div
+            onClick={() => !watching && !purchasing && !restoring && adsLeft > 0 && handleWatchForCredit()}
+            style={{ background: "linear-gradient(135deg,#FEF3C7,#FDE68A)", border: "2px solid #FCD34D", borderRadius: 18, padding: "16px 18px", marginBottom: 12, cursor: adsLeft > 0 && !watching ? "pointer" : "default", display: "flex", alignItems: "center", gap: 14, opacity: adsLeft > 0 ? 1 : 0.55 }}
+          >
+            <div style={{ fontSize: 32, flexShrink: 0 }}>🎬</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontFamily: "'Fredoka One',cursive", fontSize: 17, color: "#78350F", letterSpacing: 0.3 }}>Watch an Ad</div>
+              <div style={{ fontSize: 12, color: "#92400E", marginTop: 2, fontWeight: 600 }}>
+                {adsLeft > 0 ? "Get 1 credit, free" : "Back tomorrow for more"}
+              </div>
+              <div style={{ fontSize: 13, color: "#B45309", fontWeight: 900, marginTop: 4 }}>
+                {adsLeft} of {DAILY_REWARD_CAP} left today
+              </div>
+            </div>
+            <div style={{ flexShrink: 0, background: "#F59E0B", color: "#fff", borderRadius: 12, padding: "8px 14px", fontSize: 14, fontWeight: 900, fontFamily: "'Fredoka One',cursive", minWidth: 56, textAlign: "center" }}>
+              {watching ? "..." : adsLeft > 0 ? "FREE" : "—"}
+            </div>
+          </div>
+        )}
+
         {loading ? (
           <div style={{ textAlign: "center", padding: 32, color: C.muted, fontSize: 13 }}>Loading...</div>
         ) : loadError ? (
@@ -146,6 +196,26 @@ export default function StoreModal({ onClose, onPurchased }) {
               </div>
             );
           })
+        )}
+
+        {/* Remove Ads. Only sells the removal of the forced interstitials —
+            the rewarded offers above stay available afterwards, so a buyer
+            doesn't lose their free source of credits. */}
+        {removeAdsPkg && !adFree && (
+          <div
+            onClick={() => !purchasing && !restoring && !watching && handlePurchase(removeAdsPkg)}
+            style={{ background: C.surface, border: `2px solid ${C.border}`, borderRadius: 18, padding: "16px 18px", marginTop: 4, marginBottom: 4, cursor: "pointer", display: "flex", alignItems: "center", gap: 14, opacity: (purchasing && purchasing !== removeAdsPkg.identifier) ? 0.5 : 1 }}
+          >
+            <div style={{ fontSize: 32, flexShrink: 0 }}>🚫</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontFamily: "'Fredoka One',cursive", fontSize: 17, color: C.ink, letterSpacing: 0.3 }}>Remove Ads</div>
+              <div style={{ fontSize: 12, color: C.muted, marginTop: 2, fontWeight: 600 }}>No more ads between matches, forever</div>
+              <div style={{ fontSize: 13, color: C.accent, fontWeight: 900, marginTop: 4 }}>Keeps your free "watch for credit" offers</div>
+            </div>
+            <div style={{ flexShrink: 0, background: C.accent, color: "#fff", borderRadius: 12, padding: "8px 14px", fontSize: 14, fontWeight: 900, fontFamily: "'Fredoka One',cursive", minWidth: 56, textAlign: "center" }}>
+              {purchasing === removeAdsPkg.identifier ? "..." : removeAdsPkg.product.priceString}
+            </div>
+          </div>
         )}
 
         {error && (
