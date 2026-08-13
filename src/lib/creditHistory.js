@@ -16,6 +16,7 @@ export const SOURCES = {
   STORE_PURCHASE: "store_purchase",
   RESTORE: "restore",
   PUZZLE_UNLOCK: "puzzle_unlock",
+  REWARDED_AD: "rewarded_ad",
 };
 
 export const TYPES = {

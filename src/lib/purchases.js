@@ -2,11 +2,19 @@ import { Capacitor } from "@capacitor/core";
 import { Purchases } from "@revenuecat/purchases-capacitor";
 import { addCredits } from "./credits";
 import { recordCreditTx, SOURCES, TYPES } from "./creditHistory";
+import { setAdFree } from "./ads";
 
 const RC_API_KEY = "appl_UYsLCpOqJGnFjeejppOmbustVTW";
 
 // Promise-based guard prevents concurrent configure() calls
 let _initPromise = null;
+
+// RevenueCat is the source of truth for ad-free status; ads.js reads a
+// localStorage mirror so the first frame after launch doesn't have to wait on
+// the network. Mirror it every time we see fresh customer info.
+function syncAdFree(customerInfo) {
+  setAdFree(!!customerInfo?.entitlements?.active?.remove_ads);
+}
 
 function getSDK() {
   if (!Capacitor.isNativePlatform()) {
@@ -28,6 +36,7 @@ async function _doInit() {
     if (customerInfo?.entitlements?.active?.big_box) {
       addCredits(Infinity);
     }
+    syncAdFree(customerInfo);
   } catch (e) {
     console.log("[RC] init failed:", e?.message || String(e));
     _initPromise = null; // allow retry on next call
@@ -68,6 +77,7 @@ export async function purchasePackage(pkg) {
   const { customerInfo } = await SDK.purchasePackage({ aPackage: pkg });
   const productId = pkg.product.identifier;
   const priceStr = pkg.product?.priceString || "";
+  syncAdFree(customerInfo);
   let amount = 0;
   if (productId.includes("big_box")) {
     addCredits(Infinity);
@@ -98,6 +108,7 @@ export async function restorePurchases() {
     if (customerInfo?.entitlements?.active?.big_box) {
       addCredits(Infinity);
     }
+    syncAdFree(customerInfo);
   } catch (e) {
     console.warn("Restore failed:", e);
   }

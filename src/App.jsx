@@ -3,6 +3,7 @@ import { C } from "./constants";
 import { supa } from "./lib/supabase";
 import { loadSession, saveSession, clearSession, ensureFreshSession } from "./lib/session";
 import { initPurchases } from "./lib/purchases";
+import { initAds } from "./lib/ads";
 import { giveWelcomeCredits } from "./lib/credits";
 import { grantDailyLoginBonus } from "./lib/pvpRewards";
 import { refreshDailyReminder, setupNotificationListeners, enableNotifications } from "./lib/notifications";
@@ -31,7 +32,7 @@ export default function App() {
   const [forgotEmail, setForgotEmail] = useState("");
   const [showRatePrompt, setShowRatePrompt] = useState(false);
 
-  useEffect(() => { initPurchases(); setupNotificationListeners(); refreshDailyReminder(); flushQueue(); }, []);
+  useEffect(() => { initPurchases(); initAds(); setupNotificationListeners(); refreshDailyReminder(); flushQueue(); }, []);
 
   // Grant the daily login streak bonus the first time the app reaches the
   // authenticated "app" stage each calendar day. Idempotent — subsequent

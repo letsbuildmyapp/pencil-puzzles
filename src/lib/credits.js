@@ -1,6 +1,7 @@
 import { PUZZLE_LIST } from "../puzzles/index";
 import { recordCreditTx, SOURCES, TYPES } from "./creditHistory";
 import { trackPuzzleUnlock } from "./analytics";
+import { showRewarded, rewardsLeftToday, recordRewardUse, canUnlockWithAd, recordAdUnlock } from "./ads";
 
 const CREDITS_KEY = "pp_credits";
 const UNLIMITED_KEY = "pp_unlimited";
@@ -103,4 +104,42 @@ export function spendCreditToUnlock(puzzleId) {
   }
   trackPuzzleUnlock(puzzleId);
   return true;
+}
+
+// --- ad-funded alternatives to spending a credit ----------------------------
+//
+// Both of these show a rewarded video and only grant anything if the ad
+// reported an actual reward. The daily-cap and once-per-puzzle checks are
+// re-read here rather than trusted from the caller, so a stale button can't
+// hand out extra.
+
+// Watch an ad for +1 credit. Returns { ok, reason }.
+export async function watchAdForCredit() {
+  if (rewardsLeftToday() <= 0) return { ok: false, reason: "Come back tomorrow for more" };
+  const earned = await showRewarded();
+  if (!earned) return { ok: false, reason: "No ad available right now" };
+  recordRewardUse();
+  addCredits(1);
+  recordCreditTx({ type: TYPES.EARN, source: SOURCES.REWARDED_AD, amount: 1 });
+  return { ok: true };
+}
+
+// Watch an ad to open one puzzle instead of spending a credit. Allowed once
+// per puzzle, and not counted against the daily +1-credit cap — the two
+// rewards are separate offers. Returns { ok, reason }.
+export async function watchAdToUnlock(puzzleId) {
+  if (isUnlocked(puzzleId)) return { ok: true };
+  if (!canUnlockWithAd(puzzleId)) return { ok: false, reason: "Already used an ad on this puzzle" };
+  const earned = await showRewarded();
+  if (!earned) return { ok: false, reason: "No ad available right now" };
+  recordAdUnlock(puzzleId);
+  try {
+    const unlocked = JSON.parse(localStorage.getItem(UNLOCKED_KEY) || "[]");
+    if (!unlocked.includes(puzzleId)) {
+      unlocked.push(puzzleId);
+      localStorage.setItem(UNLOCKED_KEY, JSON.stringify(unlocked));
+    }
+  } catch {}
+  trackPuzzleUnlock(puzzleId);
+  return { ok: true };
 }
