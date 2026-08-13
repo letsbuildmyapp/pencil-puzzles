@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { C } from "../../constants";
 import { supa } from "../../lib/supabase";
-import { saveSession } from "../../lib/session";
+import { saveSession, sessionFromAuth } from "../../lib/session";
 import AuthInput from "./AuthInput";
 
 export default function LoginScreen({ onSuccess, onGoSignUp, onGoForgot }) {
@@ -20,13 +20,10 @@ export default function LoginScreen({ onSuccess, onGoSignUp, onGoForgot }) {
     try {
       const res = await supa.signIn(email.trim(), pass);
       if (res.error || !res.access_token) { setGlobalErr("Incorrect email or password."); return; }
-      const session = { token: res.access_token, userId: res.user.id, email: res.user.email };
+      const session = sessionFromAuth(res);
       saveSession(session); onSuccess(session);
     } catch (err) {
-      const displayName = email.split("@")[0];
-      const localSession = { token: "local", userId: "local-" + btoa(email).slice(0, 12), email: email.trim(), local: true };
-      saveSession({ ...localSession, displayName });
-      onSuccess(localSession, displayName);
+      setGlobalErr("Could not reach the server. Check your connection and try again.");
     } finally { setLoading(false); }
   };
 

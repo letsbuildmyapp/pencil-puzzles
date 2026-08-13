@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { C } from "../../constants";
 import { supa } from "../../lib/supabase";
-import { saveSession } from "../../lib/session";
+import { saveSession, sessionFromAuth } from "../../lib/session";
 import AuthInput from "./AuthInput";
 
 export default function SignUpScreen({ onSuccess, onGoLogin }) {
@@ -28,16 +28,35 @@ export default function SignUpScreen({ onSuccess, onGoLogin }) {
     setLoading(true); setGlobalErr("");
     try {
       const res = await supa.signUp(email.trim(), pass, name.trim());
-      if (res.error) { setGlobalErr(res.error.message || "Sign up failed"); return; }
+      // Supabase /auth/v1/signup error shape is { code, error_code, msg } —
+      // NOT { error: { message } } like other endpoints. Check both.
+      const errCode = res?.error_code || res?.error?.code;
+      const errMsg = res?.msg || res?.error_description || res?.error?.message || res?.error;
+      if (errCode === "user_already_exists" || /already (registered|exists)/i.test(errMsg || "")) {
+        setGlobalErr("An account with this email already exists. Try logging in instead.");
+        return;
+      }
+      if (errMsg || res?.code >= 400) {
+        setGlobalErr(typeof errMsg === "string" ? errMsg : "Sign up failed. Please try again.");
+        return;
+      }
+      // Email enumeration protection: signup returns success with empty
+      // identities when the email already exists (older Supabase setups).
+      if (res?.user && Array.isArray(res.user.identities) && res.user.identities.length === 0) {
+        setGlobalErr("An account with this email already exists. Try logging in instead.");
+        return;
+      }
       const login = await supa.signIn(email.trim(), pass);
-      if (login.error) { setGlobalErr("Account created! Please log in."); onGoLogin(); return; }
-      const session = { token: login.access_token, userId: login.user.id, email: login.user.email };
+      if (login.error || !login.access_token) {
+        setGlobalErr("Account created! Please log in.");
+        onGoLogin();
+        return;
+      }
+      const session = sessionFromAuth(login);
       saveSession(session);
       onSuccess(session, name.trim());
     } catch (err) {
-      const demoSession = { token: "demo", userId: "demo-" + Date.now(), email: email.trim(), demo: true };
-      saveSession({ ...demoSession, displayName: name.trim() });
-      onSuccess(demoSession, name.trim());
+      setGlobalErr("Could not reach the server. Check your connection and try again.");
     } finally { setLoading(false); }
   };
 

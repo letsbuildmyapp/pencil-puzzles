@@ -20,6 +20,15 @@ export const supa = {
     return r.json();
   },
 
+  async refreshToken(refreshToken) {
+    const r = await fetch(`${SUPA_URL}/auth/v1/token?grant_type=refresh_token`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: SUPA_KEY },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    });
+    return r.json();
+  },
+
   async signOut(token) {
     await fetch(`${SUPA_URL}/auth/v1/logout`, {
       method: "POST",
@@ -27,23 +36,48 @@ export const supa = {
     });
   },
 
-  async resetPassword(email) {
-    const r = await fetch(`${SUPA_URL}/auth/v1/recover`, {
+  // Send a 6-digit OTP to the user's email. We use this for the password
+  // reset flow because magic-link recovery doesn't work in a native app
+  // (no deep link / no /reset web page).
+  async sendOtp(email) {
+    const r = await fetch(`${SUPA_URL}/auth/v1/otp`, {
       method: "POST",
       headers: { "Content-Type": "application/json", apikey: SUPA_KEY },
-      body: JSON.stringify({ email }),
+      body: JSON.stringify({ email, create_user: false }),
     });
-    // Supabase returns 200 with empty body on success, and also on unknown emails
-    // (to prevent account enumeration). Only surface explicit error responses.
     if (!r.ok) {
       try {
         const d = await r.json();
-        return { error: d.msg || d.error_description || d.error || "Could not send reset email" };
+        return { error: d.msg || d.error_description || "Could not send code" };
       } catch {
-        return { error: "Could not send reset email" };
+        return { error: "Could not send code" };
       }
     }
     return { ok: true };
+  },
+
+  // Verify the OTP. On success returns a session (access_token + user).
+  async verifyOtp(email, token) {
+    const r = await fetch(`${SUPA_URL}/auth/v1/verify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: SUPA_KEY },
+      body: JSON.stringify({ email, token, type: "email" }),
+    });
+    return r.json();
+  },
+
+  // Update the password of the currently-authenticated user.
+  async updatePassword(accessToken, newPassword) {
+    const r = await fetch(`${SUPA_URL}/auth/v1/user`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: SUPA_KEY,
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({ password: newPassword }),
+    });
+    return r.json();
   },
 
   async getProfile(userId, token) {
@@ -86,6 +120,78 @@ export const supa = {
         completed_at: completed ? new Date().toISOString() : null,
       }),
     });
+  },
+
+  // ===== Admin RPC =====
+  async adminGetUsers(token) {
+    const r = await fetch(`${SUPA_URL}/rest/v1/rpc/get_admin_users`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: SUPA_KEY, Authorization: `Bearer ${token}` },
+      body: "{}",
+    });
+    return r.ok ? r.json() : [];
+  },
+
+  async adminSetAdmin(token, userId, isAdmin) {
+    await fetch(`${SUPA_URL}/rest/v1/rpc/set_admin_status`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: SUPA_KEY, Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ p_user_id: userId, p_is_admin: isAdmin }),
+    });
+  },
+
+  async adminGetUserDetail(token, userId) {
+    const r = await fetch(`${SUPA_URL}/rest/v1/rpc/get_admin_user_detail`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: SUPA_KEY, Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ p_user_id: userId }),
+    });
+    return r.ok ? r.json() : null;
+  },
+
+  async adminGetSummary(token) {
+    const r = await fetch(`${SUPA_URL}/rest/v1/rpc/get_analytics_summary`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: SUPA_KEY, Authorization: `Bearer ${token}` },
+      body: "{}",
+    });
+    return r.ok ? r.json() : null;
+  },
+
+  async adminGetUnlockStats(token) {
+    const r = await fetch(`${SUPA_URL}/rest/v1/rpc/get_unlock_stats`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: SUPA_KEY, Authorization: `Bearer ${token}` },
+      body: "{}",
+    });
+    return r.ok ? r.json() : [];
+  },
+
+  async adminGetPuzzleUnlockers(token, puzzleId) {
+    const r = await fetch(`${SUPA_URL}/rest/v1/rpc/get_puzzle_unlockers`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: SUPA_KEY, Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ p_puzzle_id: puzzleId }),
+    });
+    return r.ok ? r.json() : [];
+  },
+
+  async adminGetPvpModeMatches(token, mode) {
+    const r = await fetch(`${SUPA_URL}/rest/v1/rpc/get_pvp_mode_matches`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: SUPA_KEY, Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ p_mode: mode }),
+    });
+    return r.ok ? r.json() : [];
+  },
+
+  async adminGetPvpStats(token) {
+    const r = await fetch(`${SUPA_URL}/rest/v1/rpc/get_pvp_stats_admin`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: SUPA_KEY, Authorization: `Bearer ${token}` },
+      body: "{}",
+    });
+    return r.ok ? r.json() : [];
   },
 
   async updateStreak(userId, token) {
