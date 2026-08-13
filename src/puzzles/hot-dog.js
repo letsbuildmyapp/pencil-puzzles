@@ -1,0 +1,46 @@
+import { mk } from "../lib/tiles";
+
+const T = {
+  t0: mk(0),
+  t1: mk(1),
+  t2: mk(1023),
+  t3: mk(536),
+  t4: mk(3389900),
+  t5: mk(25270664),
+  t6: mk(1015814),
+  t7: mk(1015820),
+  t8: mk(1015833),
+  t9: mk(1015827),
+  t10: mk(1972321),
+  t11: mk(29826275),
+  t12: mk(12990919),
+  t13: mk(8663235),
+  t14: mk(32799),
+  t15: mk(622623),
+  t16: mk(196639),
+  t17: mk(393247),
+  t18: mk(1084636),
+  t19: mk(3251438),
+  t20: mk(3178496),
+  t21: mk(26213376),
+  t22: mk(1047552),
+  t23: mk(2096128),
+  t24: mk(30162944),
+};
+
+export const HOT_DOG_PUZZLE = {
+  id: "fd08",
+  title: "Hot Dog",
+  subtitle: "8×8 · Easy",
+  riddle: "I'm a sausage in a bun\nYou'll find me at every ballpark\nWhat am I?",
+  solution: [
+    [T.t0, T.t0, T.t0, T.t0, T.t0, T.t0, T.t0, T.t0],
+    [T.t0, T.t0, T.t0, T.t0, T.t0, T.t0, T.t0, T.t0],
+    [T.t1, T.t2, T.t2, T.t2, T.t2, T.t2, T.t2, T.t3],
+    [T.t4, T.t5, T.t6, T.t7, T.t8, T.t9, T.t10, T.t11],
+    [T.t12, T.t13, T.t14, T.t15, T.t16, T.t17, T.t18, T.t19],
+    [T.t20, T.t21, T.t22, T.t22, T.t22, T.t22, T.t23, T.t24],
+    [T.t0, T.t0, T.t0, T.t0, T.t0, T.t0, T.t0, T.t0],
+    [T.t0, T.t0, T.t0, T.t0, T.t0, T.t0, T.t0, T.t0],
+  ],
+};

@@ -1,0 +1,47 @@
+import { mk } from "../lib/tiles";
+
+const T = {
+  t0: mk(0),
+  t1: mk(14666),
+  t2: mk(33),
+  t3: mk(776),
+  t4: mk(7509157),
+  t5: mk(10824010),
+  t6: mk(2021045),
+  t7: mk(8659437),
+  t8: mk(31389101),
+  t9: mk(22730421),
+  t10: mk(14071213),
+  t11: mk(14071015),
+  t12: mk(7601911),
+  t13: mk(10845518),
+  t14: mk(22740669),
+  t15: mk(14089663),
+  t16: mk(16912),
+  t17: mk(32776456),
+  t18: mk(32505856),
+  t19: mk(32539681),
+  t20: mk(16777216),
+  t21: mk(8659204),
+  t22: mk(1082402),
+  t23: mk(4332544),
+  t24: mk(31744),
+  t25: mk(2193408),
+};
+
+export const FRENCH_FRIES_PUZZLE = {
+  id: "fd12",
+  title: "French Fries",
+  subtitle: "8×8 · Easy",
+  riddle: "We're golden sticks in a paper sleeve\nWe love ketchup and salt\nWhat are we?",
+  solution: [
+    [T.t0, T.t0, T.t0, T.t1, T.t2, T.t3, T.t0, T.t0],
+    [T.t0, T.t0, T.t4, T.t5, T.t6, T.t7, T.t0, T.t0],
+    [T.t0, T.t0, T.t8, T.t5, T.t9, T.t10, T.t0, T.t0],
+    [T.t0, T.t0, T.t11, T.t5, T.t9, T.t10, T.t0, T.t0],
+    [T.t0, T.t0, T.t12, T.t13, T.t14, T.t15, T.t16, T.t0],
+    [T.t0, T.t0, T.t17, T.t18, T.t18, T.t19, T.t20, T.t0],
+    [T.t0, T.t0, T.t21, T.t0, T.t0, T.t22, T.t0, T.t0],
+    [T.t0, T.t0, T.t23, T.t24, T.t24, T.t25, T.t0, T.t0],
+  ],
+};

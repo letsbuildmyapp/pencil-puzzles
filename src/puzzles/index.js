@@ -110,6 +110,26 @@ import { CHRISTIAN_5_PUZZLE } from "./christian-5";
 import { CHRISTIAN_6_PUZZLE } from "./christian-6";
 import { CHRISTIAN_7_PUZZLE } from "./christian-7";
 
+import { PIZZA_SLICE_PUZZLE } from "./pizza-slice";
+import { HAMBURGER_PUZZLE } from "./hamburger";
+import { ICE_CREAM_CONE_PUZZLE } from "./ice-cream-cone";
+import { DONUT_PUZZLE } from "./donut";
+import { APPLE_PUZZLE } from "./apple";
+import { BANANA_PUZZLE } from "./banana";
+import { CUPCAKE_PUZZLE } from "./cupcake";
+import { HOT_DOG_PUZZLE } from "./hot-dog";
+import { WATERMELON_PUZZLE } from "./watermelon";
+import { COOKIE_PUZZLE } from "./cookie";
+import { TACO_PUZZLE } from "./taco";
+import { FRENCH_FRIES_PUZZLE } from "./french-fries";
+import { POPSICLE_PUZZLE } from "./popsicle";
+import { CANDY_PUZZLE } from "./candy";
+import { CHERRY_PUZZLE } from "./cherry";
+import { SUSHI_PUZZLE } from "./sushi";
+import { PRETZEL_PUZZLE } from "./pretzel";
+import { LOLLIPOP_PUZZLE } from "./lollipop";
+import { PIE_PUZZLE } from "./pie";
+import { MUSHROOM_PUZZLE } from "./mushroom";
 export const PUZZLE_LIST = [
   { puzzle: ELEPHANT_PUZZLE,       free: true, category: "Animals" },
   { puzzle: COW_PUZZLE,            free: true, category: "Animals" },
@@ -222,4 +242,24 @@ export const PUZZLE_LIST = [
   { puzzle: CHRISTIAN_5_PUZZLE, free: true, category: "Christian" },
   { puzzle: CHRISTIAN_6_PUZZLE, free: true, category: "Christian" },
   { puzzle: CHRISTIAN_7_PUZZLE, free: true, category: "Christian" },
+  { puzzle: PIZZA_SLICE_PUZZLE, free: true, category: "Food" },
+  { puzzle: HAMBURGER_PUZZLE, free: true, category: "Food" },
+  { puzzle: ICE_CREAM_CONE_PUZZLE, free: true, category: "Food" },
+  { puzzle: DONUT_PUZZLE, free: true, category: "Food" },
+  { puzzle: APPLE_PUZZLE, free: true, category: "Food" },
+  { puzzle: BANANA_PUZZLE, free: true, category: "Food" },
+  { puzzle: CUPCAKE_PUZZLE, free: true, category: "Food" },
+  { puzzle: HOT_DOG_PUZZLE, free: true, category: "Food" },
+  { puzzle: WATERMELON_PUZZLE, free: true, category: "Food" },
+  { puzzle: COOKIE_PUZZLE, free: true, category: "Food" },
+  { puzzle: TACO_PUZZLE, free: true, category: "Food" },
+  { puzzle: FRENCH_FRIES_PUZZLE, free: true, category: "Food" },
+  { puzzle: POPSICLE_PUZZLE, free: true, category: "Food" },
+  { puzzle: CANDY_PUZZLE, free: true, category: "Food" },
+  { puzzle: CHERRY_PUZZLE, free: true, category: "Food" },
+  { puzzle: SUSHI_PUZZLE, free: true, category: "Food" },
+  { puzzle: PRETZEL_PUZZLE, free: true, category: "Food" },
+  { puzzle: LOLLIPOP_PUZZLE, free: true, category: "Food" },
+  { puzzle: PIE_PUZZLE, free: true, category: "Food" },
+  { puzzle: MUSHROOM_PUZZLE, free: true, category: "Food" },
 ];
