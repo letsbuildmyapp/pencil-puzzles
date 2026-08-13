@@ -27,6 +27,13 @@
             android:grantUriPermissions="true">
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
         </provider>
+
+        <!-- AdMob app ID. Currently Google's test ID — replace with the real
+             one from the AdMob console alongside the unit IDs in
+             src/lib/ads.js. The SDK crashes on launch if this is missing. -->
+        <meta-data
+            android:name="com.google.android.gms.ads.APPLICATION_ID"
+            android:value="ca-app-pub-3940256099942544~3347511713" />
     </application>
 
     <!-- Permissions -->
